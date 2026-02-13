@@ -28,8 +28,8 @@ export function AnalysisForm({ onSubmit, onCancel, status }: Props) {
     const fetchRequestsPerSub = Math.ceil(postLimit / 100);
     const commentRequests = includeComments ? Math.min(postLimit, 50) * numSubs : 0;
     const totalRequests = (fetchRequestsPerSub * numSubs) + commentRequests;
-    // Browser fetches at ~2.5s per request
-    const fetchTime = totalRequests * 2.5;
+    // OAuth API: ~1s per request
+    const fetchTime = totalRequests * 1;
     const totalTexts = postLimit * numSubs + (includeComments ? postLimit * numSubs * 5 : 0);
     const analysisTime = Math.ceil(totalTexts / 16) * 1;
     const nlpTime = 5;

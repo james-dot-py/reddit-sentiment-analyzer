@@ -1,11 +1,16 @@
-"""Reddit data fetching via public JSON endpoints with optional OAuth."""
+"""Reddit data fetching via OAuth API (oauth.reddit.com).
+
+Requires REDDIT_CLIENT_ID and REDDIT_CLIENT_SECRET environment variables.
+Uses app-only (client_credentials) OAuth which works from cloud server IPs.
+"""
 
 from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import time
-from typing import AsyncGenerator, Optional
+from typing import Optional
 
 import httpx
 
@@ -14,34 +19,34 @@ from .models import RedditPost, RedditComment, SortMethod, TimeFilter
 logger = logging.getLogger(__name__)
 
 USER_AGENT = "SubRedditSentimentAnalyzer/1.0 (research tool)"
-BASE_URL = "https://www.reddit.com"
 OAUTH_BASE_URL = "https://oauth.reddit.com"
-RATE_LIMIT_DELAY = 6.5  # seconds between requests for unauthenticated
-OAUTH_RATE_LIMIT_DELAY = 0.7  # seconds for authenticated
+RATE_LIMIT_DELAY = 0.7  # seconds between requests (OAuth: 60 req/min)
 
 
 class RedditClient:
-    """Fetches Reddit data from public JSON endpoints or via OAuth."""
+    """Fetches Reddit data via OAuth API."""
 
     def __init__(self):
         self._oauth_token: Optional[str] = None
         self._oauth_expires: float = 0
-        self._client_id: Optional[str] = None
-        self._client_secret: Optional[str] = None
+        self._client_id: str = os.environ.get("REDDIT_CLIENT_ID", "")
+        self._client_secret: str = os.environ.get("REDDIT_CLIENT_SECRET", "")
         self._cache: dict[str, tuple[float, object]] = {}
         self._cache_ttl = 300  # 5 minutes
+
+        if not self._client_id or not self._client_secret:
+            logger.warning(
+                "REDDIT_CLIENT_ID / REDDIT_CLIENT_SECRET not set. "
+                "Reddit fetching will fail until credentials are configured."
+            )
+
+    @property
+    def has_credentials(self) -> bool:
+        return bool(self._client_id and self._client_secret)
 
     @property
     def _is_authenticated(self) -> bool:
         return self._oauth_token is not None and time.time() < self._oauth_expires
-
-    @property
-    def _delay(self) -> float:
-        return OAUTH_RATE_LIMIT_DELAY if self._is_authenticated else RATE_LIMIT_DELAY
-
-    @property
-    def _base(self) -> str:
-        return OAUTH_BASE_URL if self._is_authenticated else BASE_URL
 
     def _headers(self) -> dict[str, str]:
         headers = {"User-Agent": USER_AGENT}
@@ -49,33 +54,25 @@ class RedditClient:
             headers["Authorization"] = f"Bearer {self._oauth_token}"
         return headers
 
-    def set_credentials(self, client_id: str, client_secret: str) -> None:
-        self._client_id = client_id
-        self._client_secret = client_secret
-        self._oauth_token = None
-        self._oauth_expires = 0
-
-    async def _authenticate(self) -> bool:
-        """Obtain OAuth token using client credentials."""
-        if not self._client_id or not self._client_secret:
-            return False
-        try:
-            async with httpx.AsyncClient() as client:
-                resp = await client.post(
-                    "https://www.reddit.com/api/v1/access_token",
-                    data={"grant_type": "client_credentials"},
-                    auth=(self._client_id, self._client_secret),
-                    headers={"User-Agent": USER_AGENT},
-                )
-                resp.raise_for_status()
-                data = resp.json()
-                self._oauth_token = data["access_token"]
-                self._oauth_expires = time.time() + data.get("expires_in", 3600) - 60
-                logger.info("Reddit OAuth authentication successful")
-                return True
-        except Exception as e:
-            logger.warning(f"OAuth authentication failed: {e}")
-            return False
+    async def _authenticate(self) -> None:
+        """Obtain OAuth token using client credentials (app-only auth)."""
+        if not self.has_credentials:
+            raise RuntimeError(
+                "Reddit API credentials not configured. "
+                "Set REDDIT_CLIENT_ID and REDDIT_CLIENT_SECRET environment variables."
+            )
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                "https://www.reddit.com/api/v1/access_token",
+                data={"grant_type": "client_credentials"},
+                auth=(self._client_id, self._client_secret),
+                headers={"User-Agent": USER_AGENT},
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            self._oauth_token = data["access_token"]
+            self._oauth_expires = time.time() + data.get("expires_in", 3600) - 60
+            logger.info("Reddit OAuth authentication successful")
 
     def _get_cache(self, key: str):
         if key in self._cache:
@@ -95,7 +92,7 @@ class RedditClient:
         if cached is not None:
             return cached
 
-        if self._client_id and not self._is_authenticated:
+        if not self._is_authenticated:
             await self._authenticate()
 
         async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
@@ -121,11 +118,7 @@ class RedditClient:
 
         while fetched < limit:
             this_batch = min(batch_size, limit - fetched)
-
-            if self._is_authenticated:
-                url = f"{OAUTH_BASE_URL}/r/{subreddit}/{sort.value}"
-            else:
-                url = f"{BASE_URL}/r/{subreddit}/{sort.value}.json"
+            url = f"{OAUTH_BASE_URL}/r/{subreddit}/{sort.value}"
 
             params: dict = {"limit": this_batch, "raw_json": 1}
             if sort == SortMethod.top:
@@ -174,8 +167,7 @@ class RedditClient:
             if not after or len(children) < this_batch:
                 break
 
-            # Rate limiting
-            await asyncio.sleep(self._delay)
+            await asyncio.sleep(RATE_LIMIT_DELAY)
 
         return posts[:limit]
 
@@ -186,11 +178,7 @@ class RedditClient:
         depth: int = 1,
     ) -> list[RedditComment]:
         """Fetch comments for a specific post."""
-        if self._is_authenticated:
-            url = f"{OAUTH_BASE_URL}/r/{subreddit}/comments/{post_id}"
-        else:
-            url = f"{BASE_URL}/r/{subreddit}/comments/{post_id}.json"
-
+        url = f"{OAUTH_BASE_URL}/r/{subreddit}/comments/{post_id}"
         params = {"limit": 100, "depth": depth, "raw_json": 1}
 
         try:
@@ -234,7 +222,6 @@ class RedditClient:
                     score=d.get("score", 0),
                     created_utc=d.get("created_utc", 0),
                 ))
-            # Recurse into replies
             replies = d.get("replies")
             if isinstance(replies, dict):
                 self._extract_comments(
@@ -267,7 +254,7 @@ class RedditClient:
                         i + 1, len(posts), subreddit, stage="comments"
                     )
 
-                await asyncio.sleep(self._delay)
+                await asyncio.sleep(RATE_LIMIT_DELAY)
 
         return posts, comments
 

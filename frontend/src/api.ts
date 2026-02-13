@@ -1,16 +1,16 @@
-import type { AnalysisResponse, KeywordAnalysisResponse, KeywordComparison, ProcessDataRequest, ProgressEvent, WordCloudResponse } from './types';
+import type { AnalysisRequest, AnalysisResponse, KeywordAnalysisResponse, KeywordComparison, ProgressEvent, WordCloudResponse } from './types';
 
 const BASE_URL = import.meta.env.VITE_API_URL || '';
 
-export async function streamProcess(
-  data: ProcessDataRequest,
+export async function streamAnalysis(
+  request: AnalysisRequest,
   onProgress: (event: ProgressEvent) => void,
   signal?: AbortSignal,
 ): Promise<void> {
-  const response = await fetch(`${BASE_URL}/api/process`, {
+  const response = await fetch(`${BASE_URL}/api/analyze`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
+    body: JSON.stringify(request),
     signal,
   });
 

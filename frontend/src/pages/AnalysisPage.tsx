@@ -13,8 +13,8 @@ function computeEstimateSeconds(req: AnalysisRequest): number {
   const fetchReqs = Math.ceil(req.post_limit / 100) * numSubs;
   const commentReqs = req.include_comments ? Math.min(req.post_limit, 50) * numSubs : 0;
   const totalReqs = fetchReqs + commentReqs;
-  // Browser fetches at ~2.5s per request
-  const fetchTime = totalReqs * 2.5;
+  // OAuth API: ~1s per request
+  const fetchTime = totalReqs * 1;
   const totalTexts = req.post_limit * numSubs + (req.include_comments ? req.post_limit * numSubs * 5 : 0);
   const analysisTime = Math.ceil(totalTexts / 16);
   return fetchTime + analysisTime + 5;
