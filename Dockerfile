@@ -10,12 +10,17 @@ RUN npm run build
 # ── Stage 2: Python backend + serve frontend ──────────────────────────────
 FROM python:3.12-slim
 
-# System deps for scipy, spacy, wordcloud, etc.
+# Set consistent cache dirs so models are found at runtime
+ENV HF_HOME=/app/.cache/huggingface
+ENV TRANSFORMERS_CACHE=/app/.cache/huggingface
+ENV NLTK_DATA=/app/.cache/nltk_data
+
+WORKDIR /app
+
+# System deps for scipy, spacy, wordcloud, etc. — remove after install
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
-
-WORKDIR /app
 
 # Install PyTorch CPU-only first (heaviest dep, cached separately)
 RUN pip install --no-cache-dir torch==2.5.1 --index-url https://download.pytorch.org/whl/cpu
@@ -24,13 +29,16 @@ RUN pip install --no-cache-dir torch==2.5.1 --index-url https://download.pytorch
 COPY backend/requirements-prod.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Remove build-essential to reduce image size
+RUN apt-get purge -y build-essential && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
+
 # Download spaCy model
 RUN python -m spacy download en_core_web_sm
 
-# Download NLTK data
-RUN python -c "import nltk; nltk.download('punkt_tab'); nltk.download('stopwords')"
+# Download NLTK data to explicit path
+RUN python -c "import nltk; nltk.download('punkt_tab', download_dir='/app/.cache/nltk_data'); nltk.download('stopwords', download_dir='/app/.cache/nltk_data')"
 
-# Pre-download HuggingFace sentiment model (~500MB) so it's cached in the image
+# Pre-download HuggingFace sentiment model so it's cached in the image
 RUN python -c "from transformers import AutoModelForSequenceClassification, AutoTokenizer; AutoTokenizer.from_pretrained('cardiffnlp/twitter-roberta-base-sentiment-latest'); AutoModelForSequenceClassification.from_pretrained('cardiffnlp/twitter-roberta-base-sentiment-latest')"
 
 # Copy backend code

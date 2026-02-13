@@ -74,9 +74,19 @@ _analysis_comments: dict[str, list[CommentWithSentiment]] = {}
 # ── Startup ────────────────────────────────────────────────────────────────
 @app.on_event("startup")
 async def startup():
-    logger.info("Starting up — initializing database and preloading sentiment model...")
+    logger.info("Starting up — initializing database...")
     await init_db()
-    asyncio.get_event_loop().run_in_executor(None, preload_model)
+    logger.info("Database initialized. Preloading sentiment model in background...")
+
+    def _safe_preload():
+        try:
+            preload_model()
+            logger.info("Sentiment model preloaded successfully")
+        except Exception as e:
+            logger.error(f"Model preload failed (will retry on first request): {e}")
+
+    asyncio.get_event_loop().run_in_executor(None, _safe_preload)
+    logger.info("Startup complete — server is ready to accept requests")
 
 
 # ── Health check ───────────────────────────────────────────────────────────
