@@ -30,6 +30,9 @@ RUN python -m spacy download en_core_web_sm
 # Download NLTK data
 RUN python -c "import nltk; nltk.download('punkt_tab'); nltk.download('stopwords')"
 
+# Pre-download HuggingFace sentiment model (~500MB) so it's cached in the image
+RUN python -c "from transformers import AutoModelForSequenceClassification, AutoTokenizer; AutoTokenizer.from_pretrained('cardiffnlp/twitter-roberta-base-sentiment-latest'); AutoModelForSequenceClassification.from_pretrained('cardiffnlp/twitter-roberta-base-sentiment-latest')"
+
 # Copy backend code
 COPY backend/ ./backend/
 
@@ -42,5 +45,5 @@ RUN mkdir -p /app/backend/data
 # Expose port (Railway uses $PORT)
 EXPOSE 8000
 
-# Start the server
-CMD ["python", "-m", "uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Start the server (shell form so $PORT is expanded by Railway)
+CMD python -m uvicorn backend.app.main:app --host 0.0.0.0 --port ${PORT:-8000}
