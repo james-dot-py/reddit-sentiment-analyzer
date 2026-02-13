@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
-import { streamAnalysis } from '../api';
+import { streamProcess } from '../api';
+import { fetchAllRedditData } from '../lib/redditClient';
 import type { AnalysisRequest, AnalysisResponse } from '../types';
 
 export type AnalysisStatus = 'idle' | 'loading' | 'done' | 'error';
@@ -20,18 +21,48 @@ export function useAnalysis() {
 
     setStatus('loading');
     setProgress(0);
-    setStage('');
-    setMessage('');
+    setStage('fetching');
+    setMessage('Starting Reddit fetch...');
     setError(null);
     setResult(null);
 
     try {
-      await streamAnalysis(
-        request,
+      // ── Phase 1: Client-side Reddit fetch (0–0.3) ──────────────────
+      const { posts, comments } = await fetchAllRedditData(
+        request.subreddits,
+        request.sort,
+        request.time_filter,
+        request.post_limit,
+        request.include_comments,
+        request.comment_depth,
+        controller.signal,
+        (fetchProgress) => {
+          setStage('fetching');
+          setMessage(fetchProgress.message);
+          setProgress(fetchProgress.progress * 0.3);
+        },
+      );
+
+      if (posts.length === 0) {
+        setStatus('error');
+        setError('No posts fetched. Check subreddit names and try again.');
+        return;
+      }
+
+      // ── Phase 2: Server-side NLP processing (0.3–1.0) ─────────────
+      setStage('analyzing');
+      setMessage('Sending data to server for analysis...');
+      setProgress(0.3);
+
+      await streamProcess(
+        { posts, comments, subreddits: request.subreddits },
         (event) => {
           setStage(event.stage);
           if (event.message) setMessage(event.message);
-          if (event.progress !== undefined) setProgress(event.progress);
+          if (event.progress !== undefined) {
+            // Map backend 0–1 to overall 0.3–1.0
+            setProgress(0.3 + event.progress * 0.7);
+          }
 
           if (event.stage === 'error') {
             setStatus('error');

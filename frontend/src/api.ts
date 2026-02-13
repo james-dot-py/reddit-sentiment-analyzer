@@ -1,16 +1,16 @@
-import type { AnalysisRequest, AnalysisResponse, KeywordAnalysisResponse, KeywordComparison, ProgressEvent, WordCloudResponse } from './types';
+import type { AnalysisResponse, KeywordAnalysisResponse, KeywordComparison, ProcessDataRequest, ProgressEvent, WordCloudResponse } from './types';
 
 const BASE_URL = import.meta.env.VITE_API_URL || '';
 
-export async function streamAnalysis(
-  request: AnalysisRequest,
+export async function streamProcess(
+  data: ProcessDataRequest,
   onProgress: (event: ProgressEvent) => void,
   signal?: AbortSignal,
 ): Promise<void> {
-  const response = await fetch(`${BASE_URL}/api/analyze`, {
+  const response = await fetch(`${BASE_URL}/api/process`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(request),
+    body: JSON.stringify(data),
     signal,
   });
 
@@ -84,15 +84,6 @@ export async function fetchKeywordAnalysis(keywords: string[], analysisId: strin
 
 export function getExportUrl(analysisId: string, format: 'csv' | 'pdf'): string {
   return `${BASE_URL}/api/analysis/${analysisId}/export/${format}`;
-}
-
-export async function saveCredentials(clientId: string, clientSecret: string): Promise<void> {
-  const res = await fetch(`${BASE_URL}/api/credentials`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ client_id: clientId, client_secret: clientSecret }),
-  });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
 }
 
 export interface AnalysisHistoryItem {

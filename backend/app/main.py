@@ -21,11 +21,9 @@ from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from .models import (
-    AnalysisRequest,
     AnalysisResponse,
     CommentWithSentiment,
     ContextSnippet,
-    CredentialsRequest,
     KeywordAnalysisRequest,
     KeywordAnalysisResponse,
     KeywordAnalysisResult,
@@ -34,7 +32,10 @@ from .models import (
     KeywordTimePoint,
     NLPInsights,
     PostWithSentiment,
+    ProcessDataRequest,
     ProgressUpdate,
+    RedditComment,
+    RedditPost,
     SentimentLabel,
     SentimentStats,
     SubredditSentimentSummary,
@@ -44,7 +45,6 @@ from .database import delete_analysis as db_delete_analysis
 from .database import get_analysis as db_get_analysis
 from .database import init_db, list_analyses as db_list_analyses, save_analysis as db_save_analysis
 from .nlp_analysis import generate_wordcloud_image, run_full_nlp_analysis
-from .reddit_client import reddit_client
 from .sentiment import analyze_batch, preload_model
 from .summarizer import generate_summary
 
@@ -96,14 +96,7 @@ async def health():
     return {"status": "ok", "model_loaded": is_model_loaded()}
 
 
-# ── Credentials ────────────────────────────────────────────────────────────
-@app.post("/api/credentials")
-async def set_credentials(req: CredentialsRequest):
-    reddit_client.set_credentials(req.client_id, req.client_secret)
-    return {"status": "ok", "message": "Credentials saved. Will use OAuth for faster rate limits."}
-
-
-# ── Analysis (SSE streaming) ──────────────────────────────────────────────
+# ── Processing (SSE streaming) ─────────────────────────────────────────────
 
 def _compute_sentiment_stats(scores: list[float], labels: list[SentimentLabel]) -> SentimentStats:
     if not scores:
@@ -145,8 +138,12 @@ def _build_time_series(
     return points
 
 
-async def _run_analysis(req: AnalysisRequest):
-    """Generator that yields SSE events during analysis."""
+async def _run_processing(
+    all_posts: list[RedditPost],
+    all_comments: list[RedditComment],
+    subreddits: list[str],
+):
+    """Generator that yields SSE events during NLP processing of pre-fetched data."""
     analysis_id = str(uuid.uuid4())
 
     def sse_event(data: dict) -> str:
@@ -154,53 +151,17 @@ async def _run_analysis(req: AnalysisRequest):
 
     yield sse_event({"stage": "started", "analysis_id": analysis_id, "progress": 0})
 
-    # ── Stage 1: Fetch data ───────────────────────────────────────────
-    all_posts = []
-    all_comments = []
-
-    for i, subreddit in enumerate(req.subreddits):
-        yield sse_event({
-            "stage": "fetching",
-            "message": f"Fetching posts from r/{subreddit}...",
-            "progress": (i / len(req.subreddits)) * 0.3,
-        })
-
-        try:
-            posts, comments = await reddit_client.fetch_all(
-                subreddit=subreddit,
-                sort=req.sort,
-                time_filter=req.time_filter,
-                post_limit=req.post_limit,
-                include_comments=req.include_comments,
-                comment_depth=req.comment_depth,
-            )
-            all_posts.extend(posts)
-            all_comments.extend(comments)
-
-            yield sse_event({
-                "stage": "fetching",
-                "message": f"Fetched {len(posts)} posts and {len(comments)} comments from r/{subreddit}",
-                "progress": ((i + 1) / len(req.subreddits)) * 0.3,
-            })
-        except ValueError as e:
-            yield sse_event({"stage": "error", "message": str(e)})
-            return
-        except Exception as e:
-            yield sse_event({"stage": "error", "message": f"Failed to fetch r/{subreddit}: {str(e)}"})
-            return
-
     if not all_posts:
-        yield sse_event({"stage": "error", "message": "No posts fetched. Check subreddit names."})
+        yield sse_event({"stage": "error", "message": "No posts provided."})
         return
 
-    # ── Stage 2: Sentiment analysis ───────────────────────────────────
+    # ── Stage 1: Sentiment analysis ───────────────────────────────────
     yield sse_event({
         "stage": "analyzing",
         "message": f"Running sentiment analysis on {len(all_posts)} posts...",
-        "progress": 0.3,
+        "progress": 0.0,
     })
 
-    # Prepare texts: title + selftext for posts
     post_texts = [f"{p.title} {p.selftext}".strip() for p in all_posts]
     post_sentiments = await asyncio.get_event_loop().run_in_executor(
         None, analyze_batch, post_texts
@@ -214,7 +175,7 @@ async def _run_analysis(req: AnalysisRequest):
     yield sse_event({
         "stage": "analyzing",
         "message": f"Analyzed {len(posts_with_sentiment)} posts",
-        "progress": 0.5,
+        "progress": 0.3,
     })
 
     comments_with_sentiment = []
@@ -222,7 +183,7 @@ async def _run_analysis(req: AnalysisRequest):
         yield sse_event({
             "stage": "analyzing",
             "message": f"Analyzing {len(all_comments)} comments...",
-            "progress": 0.5,
+            "progress": 0.3,
         })
 
         comment_texts = [c.body for c in all_comments]
@@ -239,18 +200,18 @@ async def _run_analysis(req: AnalysisRequest):
         yield sse_event({
             "stage": "analyzing",
             "message": f"Analyzed {len(comments_with_sentiment)} comments",
-            "progress": 0.65,
+            "progress": 0.5,
         })
 
-    # ── Stage 3: Aggregate stats ──────────────────────────────────────
+    # ── Stage 2: Aggregate stats ──────────────────────────────────────
     yield sse_event({
         "stage": "aggregating",
         "message": "Computing statistics...",
-        "progress": 0.65,
+        "progress": 0.5,
     })
 
     subreddit_summaries = []
-    for subreddit in req.subreddits:
+    for subreddit in subreddits:
         sub_posts = [p for p in posts_with_sentiment if p.post.subreddit == subreddit]
         sub_comments = [c for c in comments_with_sentiment if c.comment.subreddit == subreddit]
 
@@ -274,11 +235,11 @@ async def _run_analysis(req: AnalysisRequest):
 
     time_series = _build_time_series(posts_with_sentiment)
 
-    # ── Stage 4: NLP analysis ─────────────────────────────────────────
+    # ── Stage 3: NLP analysis ─────────────────────────────────────────
     yield sse_event({
         "stage": "nlp",
         "message": "Running NLP analysis (entities, n-grams, statistics)...",
-        "progress": 0.7,
+        "progress": 0.55,
     })
 
     nlp_post_texts = [f"{p.post.title} {p.post.selftext}" for p in posts_with_sentiment]
@@ -291,14 +252,14 @@ async def _run_analysis(req: AnalysisRequest):
     yield sse_event({
         "stage": "nlp",
         "message": "NLP analysis complete",
-        "progress": 0.85,
+        "progress": 0.8,
     })
 
-    # ── Stage 5: Generate summary ─────────────────────────────────────
+    # ── Stage 4: Generate summary ─────────────────────────────────────
     yield sse_event({
         "stage": "summarizing",
         "message": "Generating summary...",
-        "progress": 0.9,
+        "progress": 0.85,
     })
 
     summary_text = generate_summary(
@@ -332,8 +293,8 @@ async def _run_analysis(req: AnalysisRequest):
         overall_mean = statistics.mean(all_scores) if all_scores else 0
         await db_save_analysis(
             analysis_id=analysis_id,
-            subreddits=list(req.subreddits),
-            request_params=req.model_dump(),
+            subreddits=list(subreddits),
+            request_params={"subreddits": subreddits},
             response_data=result.model_dump(),
             post_count=len(posts_with_sentiment),
             comment_count=len(comments_with_sentiment),
@@ -357,11 +318,11 @@ async def _run_analysis(req: AnalysisRequest):
     })
 
 
-@app.post("/api/analyze")
-async def analyze(req: AnalysisRequest):
-    """Start analysis and stream progress via SSE."""
+@app.post("/api/process")
+async def process_data(req: ProcessDataRequest):
+    """Process pre-fetched Reddit data and stream progress via SSE."""
     return StreamingResponse(
-        _run_analysis(req),
+        _run_processing(req.posts, req.comments, req.subreddits),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

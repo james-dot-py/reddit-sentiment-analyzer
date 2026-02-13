@@ -33,23 +33,16 @@ class SentimentLabel(str, Enum):
 
 # ── Request Models ─────────────────────────────────────────────────────────
 
-class AnalysisRequest(BaseModel):
-    subreddits: list[str] = Field(..., min_length=1, description="List of subreddit names")
-    post_limit: int = Field(25, ge=1, le=1000)
-    sort: SortMethod = SortMethod.hot
-    time_filter: TimeFilter = TimeFilter.week
-    include_comments: bool = False
-    comment_depth: int = Field(1, ge=1, le=5)
-
-
 class KeywordSentimentRequest(BaseModel):
     keyword: str
     analysis_id: str
 
 
-class CredentialsRequest(BaseModel):
-    client_id: str
-    client_secret: str
+class ProcessDataRequest(BaseModel):
+    """Accept pre-fetched Reddit data from the browser for server-side NLP processing."""
+    posts: list["RedditPost"]
+    comments: list["RedditComment"] = Field(default_factory=list)
+    subreddits: list[str] = Field(..., min_length=1)
 
 
 # ── Reddit Data Models ─────────────────────────────────────────────────────

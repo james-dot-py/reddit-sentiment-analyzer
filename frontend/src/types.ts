@@ -13,6 +13,12 @@ export interface AnalysisRequest {
   comment_depth: number;
 }
 
+export interface ProcessDataRequest {
+  posts: RedditPost[];
+  comments: RedditComment[];
+  subreddits: string[];
+}
+
 export interface RedditPost {
   id: string;
   subreddit: string;

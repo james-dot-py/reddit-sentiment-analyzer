@@ -25,27 +25,21 @@ export function AnalysisForm({ onSubmit, onCancel, status }: Props) {
   const estimate = useMemo(() => {
     if (subreddits.length === 0) return null;
     const numSubs = subreddits.length;
-    // Reddit returns up to 100 posts per request
     const fetchRequestsPerSub = Math.ceil(postLimit / 100);
-    // Comment fetching adds ~1 request per post (batched, but rate-limited)
     const commentRequests = includeComments ? Math.min(postLimit, 50) * numSubs : 0;
     const totalRequests = (fetchRequestsPerSub * numSubs) + commentRequests;
-    // Unauthenticated: ~6.5s/request, authenticated: ~0.7s/request
-    const fetchTimeSlow = totalRequests * 6.5;
-    const fetchTimeFast = totalRequests * 0.7;
-    // Sentiment analysis: ~1s per batch of 16 texts
+    // Browser fetches at ~2.5s per request
+    const fetchTime = totalRequests * 2.5;
     const totalTexts = postLimit * numSubs + (includeComments ? postLimit * numSubs * 5 : 0);
     const analysisTime = Math.ceil(totalTexts / 16) * 1;
-    // NLP + summary: ~5s flat
     const nlpTime = 5;
-    const totalSlow = fetchTimeSlow + analysisTime + nlpTime;
-    const totalFast = fetchTimeFast + analysisTime + nlpTime;
+    const total = fetchTime + analysisTime + nlpTime;
     const fmt = (s: number) => {
       if (s < 60) return `~${Math.round(s)}s`;
       const m = Math.ceil(s / 60);
       return `~${m} min`;
     };
-    return { slow: fmt(totalSlow), fast: fmt(totalFast), totalSlow };
+    return { display: fmt(total), total };
   }, [subreddits.length, postLimit, includeComments]);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -159,10 +153,7 @@ export function AnalysisForm({ onSubmit, onCancel, status }: Props) {
         <div className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
           <Clock size={12} />
           <span>
-            Estimated time: <strong className="text-[var(--text-secondary)]">{estimate.slow}</strong>
-            {estimate.totalSlow > 30 && (
-              <span> ({estimate.fast} with <a href="/settings" className="text-indigo-400 hover:underline">OAuth</a>)</span>
-            )}
+            Estimated time: <strong className="text-[var(--text-secondary)]">{estimate.display}</strong>
           </span>
         </div>
       )}

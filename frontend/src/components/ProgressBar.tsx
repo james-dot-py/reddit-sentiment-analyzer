@@ -1,6 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { AlertTriangle } from 'lucide-react';
 
 interface Props {
   progress: number;
@@ -29,8 +27,8 @@ const IPA_SYMBOLS = [
 // Flavor messages that rotate during long waits
 const FLAVOR_MESSAGES: Record<string, string[]> = {
   fetching: [
-    'Paginating through Reddit\'s API...',
-    'Respecting rate limits (patience is a virtue)...',
+    'Your browser is fetching directly from Reddit...',
+    'Paginating through Reddit\'s JSON API...',
     'Gathering community discourse...',
     'Still fetching — large subreddits take a moment...',
   ],
@@ -115,8 +113,6 @@ export function ProgressBar({ progress, stage, message, estimateSeconds }: Props
     return msgs[flavorIdx % msgs.length];
   }, [stage, flavorIdx]);
 
-  const showSpeedTip = stage === 'fetching' && elapsed > 15;
-
   const formatDuration = (s: number) => {
     if (s < 60) return `${Math.round(s)}s`;
     const m = Math.ceil(s / 60);
@@ -170,16 +166,6 @@ export function ProgressBar({ progress, stage, message, estimateSeconds }: Props
         </p>
       )}
 
-      {showSpeedTip && (
-        <div className="flex items-start gap-2 rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-amber-300">
-          <AlertTriangle size={14} className="mt-0.5 shrink-0" />
-          <span>
-            Fetching is slow without OAuth credentials. Configure your{' '}
-            <Link to="/settings" className="underline hover:text-amber-200">Reddit API credentials</Link>
-            {' '}for ~10x faster data acquisition.
-          </span>
-        </div>
-      )}
     </div>
   );
 }
