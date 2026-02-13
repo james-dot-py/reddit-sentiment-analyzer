@@ -50,8 +50,8 @@ COPY --from=frontend-build /app/frontend/dist ./frontend/dist
 # Create data directory for SQLite
 RUN mkdir -p /app/backend/data
 
-# Expose port (Railway uses $PORT)
-EXPOSE 8000
+# Expose port
+EXPOSE 8080
 
 # Start the server (shell form so $PORT is expanded by Railway)
-CMD python -m uvicorn backend.app.main:app --host 0.0.0.0 --port ${PORT:-8000}
+CMD python -m uvicorn backend.app.main:app --host 0.0.0.0 --port ${PORT:-8080}
