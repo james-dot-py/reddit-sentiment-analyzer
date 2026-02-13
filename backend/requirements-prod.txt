@@ -1,11 +1,9 @@
-# Production dependencies — uses CPU-only PyTorch to keep image small
---extra-index-url https://download.pytorch.org/whl/cpu
+# Production dependencies (torch installed separately in Dockerfile for CPU-only)
 fastapi==0.115.6
 uvicorn[standard]==0.34.0
 httpx==0.28.1
 pydantic==2.10.4
 transformers==4.47.1
-torch==2.5.1+cpu
 scipy==1.14.1
 spacy==3.8.3
 nltk==3.9.1
