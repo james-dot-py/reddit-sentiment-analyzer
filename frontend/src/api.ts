@@ -1,4 +1,4 @@
-import type { AnalysisRequest, AnalysisResponse, KeywordAnalysisResponse, KeywordComparison, ProgressEvent, WordCloudResponse } from './types';
+import type { AnalysisRequest, AnalysisResponse, KeywordAnalysisResponse, KeywordComparison, ProgressEvent, SampleInfo, WordCloudResponse } from './types';
 
 const BASE_URL = import.meta.env.VITE_API_URL || '';
 
@@ -80,6 +80,53 @@ export async function fetchKeywordAnalysis(keywords: string[], analysisId: strin
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
+}
+
+export async function fetchSamples(): Promise<SampleInfo[]> {
+  const res = await fetch(`${BASE_URL}/api/samples`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+export async function streamSampleAnalysis(
+  subreddit: string,
+  onProgress: (event: ProgressEvent) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(`${BASE_URL}/api/analyze-sample`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ subreddit }),
+    signal,
+  });
+
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  if (!response.body) throw new Error('No response body');
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n\n');
+    buffer = lines.pop() || '';
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (trimmed.startsWith('data: ')) {
+        try {
+          const json = JSON.parse(trimmed.slice(6));
+          onProgress(json);
+        } catch {
+          // skip malformed events
+        }
+      }
+    }
+  }
 }
 
 export function getExportUrl(analysisId: string, format: 'csv' | 'pdf'): string {

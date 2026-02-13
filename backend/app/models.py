@@ -42,6 +42,21 @@ class AnalysisRequest(BaseModel):
     comment_depth: int = Field(1, ge=1, le=5)
 
 
+class SampleAnalyzeRequest(BaseModel):
+    subreddit: str = Field(..., description="Subreddit name matching a sample JSON file")
+
+
+class SampleInfo(BaseModel):
+    subreddit: str
+    description: str
+    post_count: int
+    comment_count: int
+    fetched_at: str
+    sort: str
+    time_filter: str
+    cached: bool = False
+
+
 class KeywordSentimentRequest(BaseModel):
     keyword: str
     analysis_id: str

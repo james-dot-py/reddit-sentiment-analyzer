@@ -6,6 +6,7 @@ import { useAnalysis } from '../hooks/useAnalysis';
 import { AnalysisForm } from '../components/AnalysisForm';
 import { ProgressBar } from '../components/ProgressBar';
 import { DashboardGrid } from '../components/DashboardGrid';
+import { SampleGallery } from '../components/SampleGallery';
 import type { AnalysisRequest } from '../types';
 
 function computeEstimateSeconds(req: AnalysisRequest): number {
@@ -21,7 +22,7 @@ function computeEstimateSeconds(req: AnalysisRequest): number {
 }
 
 export function AnalysisPage() {
-  const { status, progress, stage, message, result, error, startAnalysis, cancel, loadResult } = useAnalysis();
+  const { status, progress, stage, message, result, error, startAnalysis, startSampleAnalysis, cancel, loadResult } = useAnalysis();
   const location = useLocation();
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [estimateSeconds, setEstimateSeconds] = useState(0);
@@ -30,6 +31,11 @@ export function AnalysisPage() {
     setEstimateSeconds(computeEstimateSeconds(req));
     startAnalysis(req);
   }, [startAnalysis]);
+
+  const handleSampleSelect = useCallback((subreddit: string) => {
+    setEstimateSeconds(45);
+    startSampleAnalysis(subreddit);
+  }, [startSampleAnalysis]);
 
   useEffect(() => {
     const state = location.state as { loadAnalysisId?: string } | null;
@@ -68,34 +74,43 @@ export function AnalysisPage() {
       )}
 
       {status === 'idle' && !result && !loadingHistory && (
-        <div className="py-16 text-center">
-          <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl accent-gradient shadow-lg">
-            <BarChart3 size={36} className="text-white" />
+        <>
+          <div className="py-16 text-center">
+            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl accent-gradient shadow-lg">
+              <BarChart3 size={36} className="text-white" />
+            </div>
+            <h2 className="mb-2 text-3xl font-bold text-[var(--text-primary)]">
+              SubReddit Sentiment Analyzer
+            </h2>
+            <p className="mx-auto mb-6 max-w-xl text-sm leading-relaxed text-[var(--text-secondary)]">
+              Turn Reddit communities into quantitative research. Sentiment analysis, NLP insights, and data visualizations — no data science degree required.
+            </p>
+            <p className="mx-auto mb-8 max-w-lg text-sm leading-relaxed text-[var(--text-muted)]">
+              Analyze what communities think about topics, people, and concepts by quantifying sentiment and language patterns across posts and comments. Built for humanities researchers, social scientists, marketers, and the endlessly curious.
+            </p>
+            <div className="mb-8 flex justify-center gap-2">
+              <span className="rounded-full bg-indigo-500/10 border border-indigo-500/20 px-3 py-1 text-xs font-medium text-indigo-400">
+                RoBERTa NLP
+              </span>
+              <span className="rounded-full bg-violet-500/10 border border-violet-500/20 px-3 py-1 text-xs font-medium text-violet-400">
+                spaCy NER
+              </span>
+              <span className="rounded-full bg-purple-500/10 border border-purple-500/20 px-3 py-1 text-xs font-medium text-purple-400">
+                Multi-Community
+              </span>
+            </div>
+            <p className="text-xs text-[var(--text-muted)]">
+              Built by Jimmy Friedman
+            </p>
           </div>
-          <h2 className="mb-2 text-3xl font-bold text-[var(--text-primary)]">
-            SubReddit Sentiment Analyzer
-          </h2>
-          <p className="mx-auto mb-6 max-w-xl text-sm leading-relaxed text-[var(--text-secondary)]">
-            Turn Reddit communities into quantitative research. Sentiment analysis, NLP insights, and data visualizations — no data science degree required.
+
+          <SampleGallery onSelect={handleSampleSelect} disabled={status === 'loading'} />
+
+          <p className="text-center text-xs text-[var(--text-muted)] mt-4">
+            Custom subreddit analysis requires Reddit API credentials.
+            Use the form above with your own OAuth keys, or explore the pre-fetched samples below.
           </p>
-          <p className="mx-auto mb-8 max-w-lg text-sm leading-relaxed text-[var(--text-muted)]">
-            Analyze what communities think about topics, people, and concepts by quantifying sentiment and language patterns across posts and comments. Built for humanities researchers, social scientists, marketers, and the endlessly curious.
-          </p>
-          <div className="mb-8 flex justify-center gap-2">
-            <span className="rounded-full bg-indigo-500/10 border border-indigo-500/20 px-3 py-1 text-xs font-medium text-indigo-400">
-              RoBERTa NLP
-            </span>
-            <span className="rounded-full bg-violet-500/10 border border-violet-500/20 px-3 py-1 text-xs font-medium text-violet-400">
-              spaCy NER
-            </span>
-            <span className="rounded-full bg-purple-500/10 border border-purple-500/20 px-3 py-1 text-xs font-medium text-purple-400">
-              Multi-Community
-            </span>
-          </div>
-          <p className="text-xs text-[var(--text-muted)]">
-            Built by Jimmy Friedman
-          </p>
-        </div>
+        </>
       )}
     </div>
   );

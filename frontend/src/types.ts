@@ -159,6 +159,17 @@ export interface AnalysisResponse {
   sentiment_distribution: number[];
 }
 
+export interface SampleInfo {
+  subreddit: string;
+  description: string;
+  post_count: number;
+  comment_count: number;
+  fetched_at: string;
+  sort: string;
+  time_filter: string;
+  cached: boolean;
+}
+
 export interface ProgressEvent {
   stage: "started" | "fetching" | "analyzing" | "aggregating" | "nlp" | "summarizing" | "complete" | "error" | "results";
   message?: string;

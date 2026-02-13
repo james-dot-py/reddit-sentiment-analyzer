@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import { streamAnalysis } from '../api';
+import { streamAnalysis, streamSampleAnalysis } from '../api';
 import type { AnalysisRequest, AnalysisResponse } from '../types';
 
 export type AnalysisStatus = 'idle' | 'loading' | 'done' | 'error';
@@ -51,6 +51,44 @@ export function useAnalysis() {
     }
   }, []);
 
+  const startSampleAnalysis = useCallback(async (subreddit: string) => {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    setStatus('loading');
+    setProgress(0);
+    setStage('');
+    setMessage('');
+    setError(null);
+    setResult(null);
+
+    try {
+      await streamSampleAnalysis(
+        subreddit,
+        (event) => {
+          setStage(event.stage);
+          if (event.message) setMessage(event.message);
+          if (event.progress !== undefined) setProgress(event.progress);
+
+          if (event.stage === 'error') {
+            setStatus('error');
+            setError(event.message ?? 'Unknown error');
+          } else if (event.stage === 'results' && event.data) {
+            setResult(event.data);
+            setStatus('done');
+          }
+        },
+        controller.signal,
+      );
+    } catch (err) {
+      if ((err as Error).name !== 'AbortError') {
+        setStatus('error');
+        setError((err as Error).message);
+      }
+    }
+  }, []);
+
   const cancel = useCallback(() => {
     abortRef.current?.abort();
     setStatus('idle');
@@ -65,5 +103,5 @@ export function useAnalysis() {
     setMessage('');
   }, []);
 
-  return { status, progress, stage, message, result, error, startAnalysis, cancel, loadResult };
+  return { status, progress, stage, message, result, error, startAnalysis, startSampleAnalysis, cancel, loadResult };
 }

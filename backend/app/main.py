@@ -34,6 +34,10 @@ from .models import (
     NLPInsights,
     PostWithSentiment,
     ProgressUpdate,
+    RedditComment,
+    RedditPost,
+    SampleAnalyzeRequest,
+    SampleInfo,
     SentimentLabel,
     SentimentStats,
     SubredditSentimentSummary,
@@ -137,53 +141,16 @@ def _build_time_series(
     return points
 
 
-async def _run_analysis(req: AnalysisRequest):
-    """Generator that yields SSE events during analysis."""
-    analysis_id = str(uuid.uuid4())
-
+async def _process_fetched_data(
+    analysis_id: str,
+    all_posts: list,
+    all_comments: list,
+    subreddit_names: list[str],
+    request_params: dict | None = None,
+):
+    """Stages 2-5: sentiment, aggregation, NLP, summary. Yields SSE events."""
     def sse_event(data: dict) -> str:
         return f"data: {json.dumps(data)}\n\n"
-
-    yield sse_event({"stage": "started", "analysis_id": analysis_id, "progress": 0})
-
-    # ── Stage 1: Fetch data ───────────────────────────────────────────
-    all_posts = []
-    all_comments = []
-
-    for i, subreddit in enumerate(req.subreddits):
-        yield sse_event({
-            "stage": "fetching",
-            "message": f"Fetching posts from r/{subreddit}...",
-            "progress": (i / len(req.subreddits)) * 0.3,
-        })
-
-        try:
-            posts, comments = await reddit_client.fetch_all(
-                subreddit=subreddit,
-                sort=req.sort,
-                time_filter=req.time_filter,
-                post_limit=req.post_limit,
-                include_comments=req.include_comments,
-                comment_depth=req.comment_depth,
-            )
-            all_posts.extend(posts)
-            all_comments.extend(comments)
-
-            yield sse_event({
-                "stage": "fetching",
-                "message": f"Fetched {len(posts)} posts and {len(comments)} comments from r/{subreddit}",
-                "progress": ((i + 1) / len(req.subreddits)) * 0.3,
-            })
-        except ValueError as e:
-            yield sse_event({"stage": "error", "message": str(e)})
-            return
-        except Exception as e:
-            yield sse_event({"stage": "error", "message": f"Failed to fetch r/{subreddit}: {str(e)}"})
-            return
-
-    if not all_posts:
-        yield sse_event({"stage": "error", "message": "No posts fetched. Check subreddit names."})
-        return
 
     # ── Stage 2: Sentiment analysis ───────────────────────────────────
     yield sse_event({
@@ -241,7 +208,7 @@ async def _run_analysis(req: AnalysisRequest):
     })
 
     subreddit_summaries = []
-    for subreddit in req.subreddits:
+    for subreddit in subreddit_names:
         sub_posts = [p for p in posts_with_sentiment if p.post.subreddit == subreddit]
         sub_comments = [c for c in comments_with_sentiment if c.comment.subreddit == subreddit]
 
@@ -323,8 +290,8 @@ async def _run_analysis(req: AnalysisRequest):
         overall_mean = statistics.mean(all_scores) if all_scores else 0
         await db_save_analysis(
             analysis_id=analysis_id,
-            subreddits=list(req.subreddits),
-            request_params=req.model_dump(),
+            subreddits=subreddit_names,
+            request_params=request_params or {},
             response_data=result.model_dump(),
             post_count=len(posts_with_sentiment),
             comment_count=len(comments_with_sentiment),
@@ -341,11 +308,66 @@ async def _run_analysis(req: AnalysisRequest):
         "analysis_id": analysis_id,
     })
 
-    # Yield full results as final event
     yield sse_event({
         "stage": "results",
         "data": result.model_dump(),
     })
+
+
+async def _run_analysis(req: AnalysisRequest):
+    """Generator that yields SSE events during analysis."""
+    analysis_id = str(uuid.uuid4())
+
+    def sse_event(data: dict) -> str:
+        return f"data: {json.dumps(data)}\n\n"
+
+    yield sse_event({"stage": "started", "analysis_id": analysis_id, "progress": 0})
+
+    # ── Stage 1: Fetch data ───────────────────────────────────────────
+    all_posts = []
+    all_comments = []
+
+    for i, subreddit in enumerate(req.subreddits):
+        yield sse_event({
+            "stage": "fetching",
+            "message": f"Fetching posts from r/{subreddit}...",
+            "progress": (i / len(req.subreddits)) * 0.3,
+        })
+
+        try:
+            posts, comments = await reddit_client.fetch_all(
+                subreddit=subreddit,
+                sort=req.sort,
+                time_filter=req.time_filter,
+                post_limit=req.post_limit,
+                include_comments=req.include_comments,
+                comment_depth=req.comment_depth,
+            )
+            all_posts.extend(posts)
+            all_comments.extend(comments)
+
+            yield sse_event({
+                "stage": "fetching",
+                "message": f"Fetched {len(posts)} posts and {len(comments)} comments from r/{subreddit}",
+                "progress": ((i + 1) / len(req.subreddits)) * 0.3,
+            })
+        except ValueError as e:
+            yield sse_event({"stage": "error", "message": str(e)})
+            return
+        except Exception as e:
+            yield sse_event({"stage": "error", "message": f"Failed to fetch r/{subreddit}: {str(e)}"})
+            return
+
+    if not all_posts:
+        yield sse_event({"stage": "error", "message": "No posts fetched. Check subreddit names."})
+        return
+
+    # Delegate to shared processing pipeline
+    async for event in _process_fetched_data(
+        analysis_id, all_posts, all_comments,
+        list(req.subreddits), req.model_dump(),
+    ):
+        yield event
 
 
 @app.post("/api/analyze")
@@ -353,6 +375,119 @@ async def analyze(req: AnalysisRequest):
     """Start analysis and stream progress via SSE."""
     return StreamingResponse(
         _run_analysis(req),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+# ── Sample data endpoints ─────────────────────────────────────────────────
+
+SAMPLES_DIR = Path(__file__).resolve().parent.parent / "samples"
+
+
+def _load_sample(subreddit: str) -> dict | None:
+    """Load a sample JSON file by subreddit name (case-insensitive)."""
+    path = SAMPLES_DIR / f"{subreddit.lower()}.json"
+    if not path.exists():
+        return None
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+@app.get("/api/samples")
+async def list_samples():
+    """List available pre-fetched sample datasets."""
+    samples = []
+    if not SAMPLES_DIR.exists():
+        return samples
+
+    for path in sorted(SAMPLES_DIR.glob("*.json")):
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            meta = data.get("metadata", {})
+            # Check if this sample has a cached analysis in SQLite
+            cache_id = f"sample_{data['subreddit'].lower()}"
+            cached = await db_get_analysis(cache_id) is not None
+            samples.append(SampleInfo(
+                subreddit=data["subreddit"],
+                description=meta.get("description", ""),
+                post_count=meta.get("post_count", len(data.get("posts", []))),
+                comment_count=meta.get("comment_count", len(data.get("comments", []))),
+                fetched_at=meta.get("fetched_at", ""),
+                sort=meta.get("sort", "top"),
+                time_filter=meta.get("time_filter", "week"),
+                cached=cached,
+            ))
+        except Exception as e:
+            logger.warning(f"Failed to read sample {path.name}: {e}")
+
+    return samples
+
+
+async def _run_sample_analysis(subreddit: str):
+    """Load sample JSON, check cache, run analysis pipeline via SSE."""
+    def sse_event(data: dict) -> str:
+        return f"data: {json.dumps(data)}\n\n"
+
+    analysis_id = f"sample_{subreddit.lower()}"
+
+    # Check SQLite cache first
+    cached = await db_get_analysis(analysis_id)
+    if cached is not None:
+        logger.info(f"Sample analysis for r/{subreddit} served from cache")
+        # Hydrate in-memory cache too
+        result = AnalysisResponse(**cached)
+        _analyses[analysis_id] = result
+        _analysis_posts[analysis_id] = result.posts
+        _analysis_comments[analysis_id] = result.comments
+
+        yield sse_event({"stage": "started", "analysis_id": analysis_id, "progress": 0})
+        yield sse_event({
+            "stage": "complete",
+            "message": "Loaded from cache!",
+            "progress": 1.0,
+            "analysis_id": analysis_id,
+        })
+        yield sse_event({"stage": "results", "data": cached})
+        return
+
+    # Load sample JSON
+    sample_data = _load_sample(subreddit)
+    if sample_data is None:
+        yield sse_event({"stage": "error", "message": f"No sample data found for r/{subreddit}"})
+        return
+
+    yield sse_event({"stage": "started", "analysis_id": analysis_id, "progress": 0})
+
+    # Convert raw dicts to model instances
+    all_posts = [RedditPost(**p) for p in sample_data["posts"]]
+    all_comments = [RedditComment(**c) for c in sample_data["comments"]]
+
+    yield sse_event({
+        "stage": "fetching",
+        "message": f"Loaded {len(all_posts)} posts and {len(all_comments)} comments from sample data",
+        "progress": 0.3,
+    })
+
+    # Delegate to shared processing pipeline
+    async for event in _process_fetched_data(
+        analysis_id, all_posts, all_comments,
+        [sample_data["subreddit"]],
+        {"source": "sample", "subreddit": subreddit},
+    ):
+        yield event
+
+
+@app.post("/api/analyze-sample")
+async def analyze_sample(req: SampleAnalyzeRequest):
+    """Analyze pre-fetched sample data with SSE streaming."""
+    return StreamingResponse(
+        _run_sample_analysis(req.subreddit),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
