@@ -406,13 +406,16 @@ async def list_samples():
         return samples
 
     for path in sorted(SAMPLES_DIR.glob("*.json")):
+        # Skip .analysis.json files
+        if path.name.endswith(".analysis.json"):
+            continue
         try:
             with open(path, "r", encoding="utf-8") as f:
                 data = json.load(f)
             meta = data.get("metadata", {})
-            # Check if this sample has a cached analysis in SQLite
-            cache_id = f"sample_{data['subreddit'].lower()}"
-            cached = await db_get_analysis(cache_id) is not None
+            # Check if a precomputed .analysis.json exists (instant, no DB call)
+            analysis_path = path.with_suffix(".analysis.json")
+            precomputed = analysis_path.exists()
             samples.append(SampleInfo(
                 subreddit=data["subreddit"],
                 description=meta.get("description", ""),
@@ -421,7 +424,8 @@ async def list_samples():
                 fetched_at=meta.get("fetched_at", ""),
                 sort=meta.get("sort", "top"),
                 time_filter=meta.get("time_filter", "week"),
-                cached=cached,
+                cached=precomputed,
+                precomputed=precomputed,
             ))
         except Exception as e:
             logger.warning(f"Failed to read sample {path.name}: {e}")
@@ -436,11 +440,32 @@ async def _run_sample_analysis(subreddit: str):
 
     analysis_id = f"sample_{subreddit.lower()}"
 
-    # Check SQLite cache first
+    # 1) Check for precomputed .analysis.json (instant)
+    analysis_path = SAMPLES_DIR / f"{subreddit.lower()}.analysis.json"
+    if analysis_path.exists():
+        logger.info(f"Sample analysis for r/{subreddit} served from precomputed file")
+        with open(analysis_path, "r", encoding="utf-8") as f:
+            precomputed_data = json.load(f)
+        # Hydrate in-memory cache
+        result = AnalysisResponse(**precomputed_data)
+        _analyses[analysis_id] = result
+        _analysis_posts[analysis_id] = result.posts
+        _analysis_comments[analysis_id] = result.comments
+
+        yield sse_event({"stage": "started", "analysis_id": analysis_id, "progress": 0})
+        yield sse_event({
+            "stage": "complete",
+            "message": "Loaded instantly!",
+            "progress": 1.0,
+            "analysis_id": analysis_id,
+        })
+        yield sse_event({"stage": "results", "data": precomputed_data})
+        return
+
+    # 2) Check SQLite cache
     cached = await db_get_analysis(analysis_id)
     if cached is not None:
         logger.info(f"Sample analysis for r/{subreddit} served from cache")
-        # Hydrate in-memory cache too
         result = AnalysisResponse(**cached)
         _analyses[analysis_id] = result
         _analysis_posts[analysis_id] = result.posts
@@ -456,7 +481,7 @@ async def _run_sample_analysis(subreddit: str):
         yield sse_event({"stage": "results", "data": cached})
         return
 
-    # Load sample JSON
+    # 3) Full pipeline fallback
     sample_data = _load_sample(subreddit)
     if sample_data is None:
         yield sse_event({"stage": "error", "message": f"No sample data found for r/{subreddit}"})
@@ -464,7 +489,6 @@ async def _run_sample_analysis(subreddit: str):
 
     yield sse_event({"stage": "started", "analysis_id": analysis_id, "progress": 0})
 
-    # Convert raw dicts to model instances
     all_posts = [RedditPost(**p) for p in sample_data["posts"]]
     all_comments = [RedditComment(**c) for c in sample_data["comments"]]
 
@@ -474,7 +498,6 @@ async def _run_sample_analysis(subreddit: str):
         "progress": 0.3,
     })
 
-    # Delegate to shared processing pipeline
     async for event in _process_fetched_data(
         analysis_id, all_posts, all_comments,
         [sample_data["subreddit"]],

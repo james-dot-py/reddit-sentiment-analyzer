@@ -168,6 +168,7 @@ export interface SampleInfo {
   sort: string;
   time_filter: string;
   cached: boolean;
+  precomputed: boolean;
 }
 
 export interface ProgressEvent {

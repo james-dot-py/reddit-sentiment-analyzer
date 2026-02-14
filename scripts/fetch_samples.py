@@ -5,11 +5,13 @@ Standalone script — only requires `requests` (no ML dependencies).
 Run from a residential IP (Reddit blocks cloud/datacenter IPs).
 
 Usage:
-    python scripts/fetch_samples.py
+    python scripts/fetch_samples.py              # fetch all
+    python scripts/fetch_samples.py --subreddit askreddit  # fetch one
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 import time
 from datetime import datetime, timezone
@@ -21,16 +23,16 @@ SAMPLES_DIR = Path(__file__).resolve().parent.parent / "backend" / "samples"
 USER_AGENT = "SubRedditSentimentAnalyzer/1.0 (sample data fetcher)"
 
 SUBREDDITS = [
-    {"name": "AskReddit",          "limit": 100, "sort": "top", "time": "week",  "depth": 2, "description": "Broad Q&A — enormous topic variety and opinion diversity"},
-    {"name": "politics",           "limit": 100, "sort": "top", "time": "week",  "depth": 2, "description": "Polarized political discourse and partisan sentiment"},
-    {"name": "science",            "limit": 75,  "sort": "top", "time": "month", "depth": 2, "description": "Academic register with factual, measured language"},
-    {"name": "worldnews",          "limit": 100, "sort": "top", "time": "week",  "depth": 2, "description": "Geopolitical sentiment and international affairs"},
-    {"name": "personalfinance",    "limit": 75,  "sort": "top", "time": "month", "depth": 2, "description": "Financial advice with stress, relief, and gratitude"},
-    {"name": "relationship_advice","limit": 75,  "sort": "top", "time": "month", "depth": 2, "description": "High emotional valence — relationship dynamics"},
-    {"name": "unpopularopinion",   "limit": 100, "sort": "top", "time": "week",  "depth": 2, "description": "Contrarian and argumentative discourse"},
-    {"name": "technology",         "limit": 100, "sort": "top", "time": "week",  "depth": 2, "description": "Tech industry sentiment and innovation reactions"},
-    {"name": "changemyview",       "limit": 75,  "sort": "top", "time": "month", "depth": 2, "description": "Deliberative reasoning and persuasion patterns"},
-    {"name": "TrueOffMyChest",     "limit": 75,  "sort": "top", "time": "month", "depth": 2, "description": "Confessional, raw emotional expression"},
+    {"name": "AskReddit",          "limit": 200, "sort": "top", "time": "week",  "depth": 2, "description": "Broad Q&A — enormous topic variety and opinion diversity"},
+    {"name": "politics",           "limit": 200, "sort": "top", "time": "week",  "depth": 2, "description": "Polarized political discourse and partisan sentiment"},
+    {"name": "science",            "limit": 150, "sort": "top", "time": "month", "depth": 2, "description": "Academic register with factual, measured language"},
+    {"name": "worldnews",          "limit": 200, "sort": "top", "time": "week",  "depth": 2, "description": "Geopolitical sentiment and international affairs"},
+    {"name": "personalfinance",    "limit": 150, "sort": "top", "time": "month", "depth": 2, "description": "Financial advice with stress, relief, and gratitude"},
+    {"name": "relationship_advice","limit": 150, "sort": "top", "time": "month", "depth": 2, "description": "High emotional valence — relationship dynamics"},
+    {"name": "unpopularopinion",   "limit": 200, "sort": "top", "time": "week",  "depth": 2, "description": "Contrarian and argumentative discourse"},
+    {"name": "technology",         "limit": 200, "sort": "top", "time": "week",  "depth": 2, "description": "Tech industry sentiment and innovation reactions"},
+    {"name": "changemyview",       "limit": 150, "sort": "top", "time": "month", "depth": 2, "description": "Deliberative reasoning and persuasion patterns"},
+    {"name": "TrueOffMyChest",     "limit": 150, "sort": "top", "time": "month", "depth": 2, "description": "Confessional, raw emotional expression"},
 ]
 
 RATE_LIMIT = 2.0  # seconds between requests
@@ -142,7 +144,7 @@ def fetch_subreddit(config: dict) -> dict:
     all_comments = []
     # Fetch comments for top posts (by score)
     sorted_posts = sorted(posts, key=lambda p: p["score"], reverse=True)
-    comment_posts = sorted_posts[:min(25, len(sorted_posts))]
+    comment_posts = sorted_posts[:min(50, len(sorted_posts))]
 
     for i, post in enumerate(comment_posts):
         print(f"  Fetching comments for post {i+1}/{len(comment_posts)}: {post['title'][:60]}...")
@@ -169,13 +171,33 @@ def fetch_subreddit(config: dict) -> dict:
     }
 
 
+def _get_configs(subreddit: str | None) -> list[dict]:
+    """Return configs to fetch — one if --subreddit given, else all."""
+    if subreddit:
+        name_lower = subreddit.lower()
+        matches = [c for c in SUBREDDITS if c["name"].lower() == name_lower]
+        if not matches:
+            print(f"Unknown subreddit: {subreddit}")
+            print(f"Available: {', '.join(c['name'] for c in SUBREDDITS)}")
+            raise SystemExit(1)
+        return matches
+    return SUBREDDITS
+
+
 def main():
+    parser = argparse.ArgumentParser(description="Fetch sample Reddit data")
+    parser.add_argument("--subreddit", type=str, help="Fetch a single subreddit by name")
+    parser.add_argument("--all", action="store_true", help="Fetch all subreddits (default)")
+    args = parser.parse_args()
+
+    configs = _get_configs(args.subreddit)
+
     SAMPLES_DIR.mkdir(parents=True, exist_ok=True)
 
     print(f"Saving samples to: {SAMPLES_DIR}")
-    print(f"Fetching {len(SUBREDDITS)} subreddits...")
+    print(f"Fetching {len(configs)} subreddit(s)...")
 
-    for config in SUBREDDITS:
+    for config in configs:
         try:
             result = fetch_subreddit(config)
             out_path = SAMPLES_DIR / f"{config['name'].lower()}.json"
@@ -187,6 +209,8 @@ def main():
 
     print(f"\nDone! Files in {SAMPLES_DIR}:")
     for p in sorted(SAMPLES_DIR.glob("*.json")):
+        if p.name.endswith(".analysis.json"):
+            continue
         size_kb = p.stat().st_size / 1024
         print(f"  {p.name} ({size_kb:.0f} KB)")
 

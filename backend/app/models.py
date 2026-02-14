@@ -55,6 +55,7 @@ class SampleInfo(BaseModel):
     sort: str
     time_filter: str
     cached: bool = False
+    precomputed: bool = False
 
 
 class KeywordSentimentRequest(BaseModel):
