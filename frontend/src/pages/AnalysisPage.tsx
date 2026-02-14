@@ -104,7 +104,7 @@ export function AnalysisPage() {
             </p>
           </div>
 
-          <SampleGallery onSelect={handleSampleSelect} disabled={status === 'loading'} />
+          <SampleGallery onSelect={handleSampleSelect} disabled={false} />
 
           <p className="text-center text-xs text-[var(--text-muted)] mt-4">
             Custom subreddit analysis requires Reddit API credentials.
