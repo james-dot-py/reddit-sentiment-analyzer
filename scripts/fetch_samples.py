@@ -20,19 +20,24 @@ from pathlib import Path
 import requests
 
 SAMPLES_DIR = Path(__file__).resolve().parent.parent / "backend" / "samples"
-USER_AGENT = "SubRedditSentimentAnalyzer/1.0 (sample data fetcher)"
+USER_AGENT = "Undercurrent/2.0 (sample data fetcher)"
 
 SUBREDDITS = [
-    {"name": "AskReddit",          "limit": 200, "sort": "top", "time": "week",  "depth": 2, "description": "Broad Q&A — enormous topic variety and opinion diversity"},
-    {"name": "politics",           "limit": 200, "sort": "top", "time": "week",  "depth": 2, "description": "Polarized political discourse and partisan sentiment"},
-    {"name": "science",            "limit": 150, "sort": "top", "time": "month", "depth": 2, "description": "Academic register with factual, measured language"},
-    {"name": "worldnews",          "limit": 200, "sort": "top", "time": "week",  "depth": 2, "description": "Geopolitical sentiment and international affairs"},
-    {"name": "personalfinance",    "limit": 150, "sort": "top", "time": "month", "depth": 2, "description": "Financial advice with stress, relief, and gratitude"},
-    {"name": "relationship_advice","limit": 150, "sort": "top", "time": "month", "depth": 2, "description": "High emotional valence — relationship dynamics"},
-    {"name": "unpopularopinion",   "limit": 200, "sort": "top", "time": "week",  "depth": 2, "description": "Contrarian and argumentative discourse"},
-    {"name": "technology",         "limit": 200, "sort": "top", "time": "week",  "depth": 2, "description": "Tech industry sentiment and innovation reactions"},
-    {"name": "changemyview",       "limit": 150, "sort": "top", "time": "month", "depth": 2, "description": "Deliberative reasoning and persuasion patterns"},
-    {"name": "TrueOffMyChest",     "limit": 150, "sort": "top", "time": "month", "depth": 2, "description": "Confessional, raw emotional expression"},
+    # Ideological pairs
+    {"name": "conservative",       "limit": 200, "sort": "top", "time": "week",  "depth": 2, "description": "Right-leaning political identity — patriotism, tradition, and free markets"},
+    {"name": "progressive",        "limit": 200, "sort": "top", "time": "week",  "depth": 2, "description": "Left-leaning political identity — equity, reform, and social justice"},
+    {"name": "atheism",            "limit": 200, "sort": "top", "time": "week",  "depth": 2, "description": "Secular identity — skepticism, science, and critique of religion"},
+    {"name": "Christianity",       "limit": 200, "sort": "top", "time": "week",  "depth": 2, "description": "Faith-based identity — theology, worship, and moral frameworks"},
+    # Identity & lifestyle pairs
+    {"name": "vegan",              "limit": 200, "sort": "top", "time": "week",  "depth": 2, "description": "Plant-based identity — ethics, environment, and dietary conviction"},
+    {"name": "BBQ",                "limit": 200, "sort": "top", "time": "week",  "depth": 2, "description": "Meat culture identity — craft, tradition, and community pride"},
+    {"name": "childfree",          "limit": 200, "sort": "top", "time": "week",  "depth": 2, "description": "Child-free identity — autonomy, lifestyle choice, and social pressure"},
+    {"name": "Parenting",          "limit": 200, "sort": "top", "time": "week",  "depth": 2, "description": "Parenting identity — family values, challenges, and shared wisdom"},
+    {"name": "antiwork",           "limit": 200, "sort": "top", "time": "week",  "depth": 2, "description": "Labor reform identity — worker rights, burnout, and corporate critique"},
+    {"name": "overemployed",       "limit": 200, "sort": "top", "time": "week",  "depth": 2, "description": "Hustle identity — multiple jobs, income stacking, and career hacking"},
+    # Fandom pairs
+    {"name": "apple",              "limit": 200, "sort": "top", "time": "week",  "depth": 2, "description": "Apple ecosystem identity — design, premium experience, and brand loyalty"},
+    {"name": "Android",            "limit": 200, "sort": "top", "time": "week",  "depth": 2, "description": "Android ecosystem identity — customization, openness, and value"},
 ]
 
 RATE_LIMIT = 2.0  # seconds between requests
