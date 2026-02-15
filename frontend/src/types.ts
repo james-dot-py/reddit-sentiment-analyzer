@@ -148,6 +148,38 @@ export interface KeywordAnalysisResponse {
   results: KeywordAnalysisResult[];
 }
 
+// ── Tribalism Classification ──────────────────────────────────────────────
+
+export type TribalClass = "Sacred" | "Blasphemous" | "Controversial" | "Neutral";
+
+export interface TribalTopic {
+  topic: string;
+  tribal_class: TribalClass;
+  mean_sentiment: number;
+  std_dev: number;
+  consensus_score: number;
+  mention_count: number;
+  sample_texts: string[];
+}
+
+export interface TribalAnalysis {
+  topics: TribalTopic[];
+  ratioed_posts: PostWithSentiment[];
+  narrative: string;
+}
+
+export interface ConceptSearchResponse {
+  query: string;
+  terms: string[];
+  matching_post_count: number;
+  matching_comment_count: number;
+  stats: SentimentStats | null;
+  topic: TribalTopic | null;
+  snippets: ContextSnippet[];
+}
+
+// ── Full Analysis Response ────────────────────────────────────────────────
+
 export interface AnalysisResponse {
   analysis_id: string;
   subreddit_summaries: SubredditSentimentSummary[];
@@ -157,6 +189,7 @@ export interface AnalysisResponse {
   nlp_insights: NLPInsights;
   summary_text: string;
   sentiment_distribution: number[];
+  tribal_analysis?: TribalAnalysis;
 }
 
 export interface SampleInfo {
@@ -172,7 +205,7 @@ export interface SampleInfo {
 }
 
 export interface ProgressEvent {
-  stage: "started" | "fetching" | "analyzing" | "aggregating" | "nlp" | "summarizing" | "complete" | "error" | "results";
+  stage: "started" | "fetching" | "analyzing" | "aggregating" | "nlp" | "tribal" | "summarizing" | "complete" | "error" | "results";
   message?: string;
   progress?: number;
   analysis_id?: string;

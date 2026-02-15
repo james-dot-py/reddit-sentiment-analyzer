@@ -8,6 +8,8 @@ from .models import (
     SentimentLabel,
     PostWithSentiment,
     CommentWithSentiment,
+    TribalClass,
+    TribalTopic,
 )
 
 
@@ -117,3 +119,66 @@ def generate_summary(
 
     paragraphs = [p for p in [para1, para2, para3] if p]
     return "\n\n".join(paragraphs)
+
+
+def generate_tribal_narrative(
+    topics: list[TribalTopic],
+    ratioed_posts: list[PostWithSentiment],
+) -> str:
+    """Generate an editorial narrative about tribal findings."""
+    if not topics:
+        return "Not enough data to identify tribal patterns in this community."
+
+    sacred = [t for t in topics if t.tribal_class == TribalClass.sacred]
+    blasphemous = [t for t in topics if t.tribal_class == TribalClass.blasphemous]
+    controversial = [t for t in topics if t.tribal_class == TribalClass.controversial]
+
+    parts: list[str] = []
+
+    if sacred:
+        top = sacred[0]
+        parts.append(
+            f"This community's most sacred topic is **{top.topic}** — "
+            f"mentioned {top.mention_count} times with near-universal approval "
+            f"(mean sentiment: {top.mean_sentiment:+.3f})."
+        )
+        if len(sacred) > 1:
+            others = ", ".join(f"**{t.topic}**" for t in sacred[1:3])
+            parts.append(f"Other revered topics include {others}.")
+
+    if blasphemous:
+        top = blasphemous[0]
+        parts.append(
+            f"On the other end, **{top.topic}** draws unified disapproval "
+            f"(mean: {top.mean_sentiment:+.3f} across {top.mention_count} mentions)."
+        )
+
+    if controversial:
+        top = controversial[0]
+        parts.append(
+            f"The most divisive topic is **{top.topic}** — "
+            f"opinions are fractured with a standard deviation of {top.std_dev:.3f}, "
+            f"making it a genuine battleground."
+        )
+
+    if ratioed_posts:
+        n = len(ratioed_posts)
+        parts.append(
+            f"{n} post{'s' if n != 1 else ''} showed a significant disconnect "
+            f"between the poster's sentiment and the community's response."
+        )
+
+    if not parts:
+        non_neutral = [t for t in topics if t.tribal_class != TribalClass.neutral]
+        if non_neutral:
+            parts.append(
+                f"Among {len(topics)} identified topics, "
+                f"{len(non_neutral)} showed notable tribal patterns."
+            )
+        else:
+            parts.append(
+                f"Across {len(topics)} topics, sentiment is relatively uniform — "
+                f"no strong tribal divisions emerged."
+            )
+
+    return " ".join(parts)

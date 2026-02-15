@@ -17,11 +17,12 @@ import { Badge } from './ui/Badge';
 import { Spinner } from './ui/Spinner';
 
 const tooltipStyle = {
-  backgroundColor: 'var(--surface-2)',
-  border: '1px solid var(--glass-border)',
-  borderRadius: '8px',
+  backgroundColor: 'var(--surface-card)',
+  border: '1px solid var(--border-subtle)',
+  borderRadius: '3px',
   fontSize: '12px',
-  boxShadow: 'var(--glass-shadow)',
+  fontFamily: 'var(--font-data)',
+  boxShadow: 'var(--paper-shadow)',
 };
 
 const KEYWORD_COLORS = ['#818cf8', '#f472b6', '#34d399', '#fbbf24', '#c084fc', '#fb923c'];
@@ -99,7 +100,7 @@ export function CompareSection({ analysisId }: Props) {
   const expanded = results.find((r) => r.keyword === expandedKeyword);
 
   return (
-    <div className="glass-card rounded-2xl p-6 space-y-5">
+    <div className="paper-card rounded p-6 space-y-5">
       <div>
         <h3 className="text-xs font-semibold uppercase tracking-[0.15em] text-[var(--text-muted)] mb-1">
           Keyword Valence
