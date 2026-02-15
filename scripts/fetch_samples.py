@@ -23,16 +23,25 @@ SAMPLES_DIR = Path(__file__).resolve().parent.parent / "backend" / "samples"
 USER_AGENT = "SubRedditSentimentAnalyzer/1.0 (sample data fetcher)"
 
 SUBREDDITS = [
-    {"name": "AskReddit",          "limit": 200, "sort": "top", "time": "week",  "depth": 2, "description": "Broad Q&A — enormous topic variety and opinion diversity"},
-    {"name": "politics",           "limit": 200, "sort": "top", "time": "week",  "depth": 2, "description": "Polarized political discourse and partisan sentiment"},
-    {"name": "science",            "limit": 150, "sort": "top", "time": "month", "depth": 2, "description": "Academic register with factual, measured language"},
-    {"name": "worldnews",          "limit": 200, "sort": "top", "time": "week",  "depth": 2, "description": "Geopolitical sentiment and international affairs"},
-    {"name": "personalfinance",    "limit": 150, "sort": "top", "time": "month", "depth": 2, "description": "Financial advice with stress, relief, and gratitude"},
-    {"name": "relationship_advice","limit": 150, "sort": "top", "time": "month", "depth": 2, "description": "High emotional valence — relationship dynamics"},
-    {"name": "unpopularopinion",   "limit": 200, "sort": "top", "time": "week",  "depth": 2, "description": "Contrarian and argumentative discourse"},
-    {"name": "technology",         "limit": 200, "sort": "top", "time": "week",  "depth": 2, "description": "Tech industry sentiment and innovation reactions"},
-    {"name": "changemyview",       "limit": 150, "sort": "top", "time": "month", "depth": 2, "description": "Deliberative reasoning and persuasion patterns"},
-    {"name": "TrueOffMyChest",     "limit": 150, "sort": "top", "time": "month", "depth": 2, "description": "Confessional, raw emotional expression"},
+    # Tribal pairs — contrasting communities on the same topic
+    # Politics
+    {"name": "Conservative",       "limit": 200, "sort": "top", "time": "month", "depth": 2, "description": "Right-leaning political discourse and conservative values"},
+    {"name": "progressive",        "limit": 200, "sort": "top", "time": "month", "depth": 2, "description": "Left-leaning political discourse and progressive values"},
+    # Religion
+    {"name": "atheism",            "limit": 200, "sort": "top", "time": "month", "depth": 2, "description": "Secular worldview, critiques of religion and faith"},
+    {"name": "Christianity",       "limit": 200, "sort": "top", "time": "month", "depth": 2, "description": "Christian faith, theology, and community support"},
+    # Diet / Food culture
+    {"name": "vegan",              "limit": 200, "sort": "top", "time": "month", "depth": 2, "description": "Plant-based lifestyle advocacy and ethics"},
+    {"name": "BBQ",                "limit": 200, "sort": "top", "time": "month", "depth": 2, "description": "Meat-centric cooking culture and grilling enthusiasm"},
+    # Parenting
+    {"name": "childfree",          "limit": 200, "sort": "top", "time": "month", "depth": 2, "description": "Choosing a child-free lifestyle, venting about societal pressure"},
+    {"name": "Parenting",          "limit": 200, "sort": "top", "time": "month", "depth": 2, "description": "Parenting challenges, milestones, and family life"},
+    # Work culture
+    {"name": "antiwork",           "limit": 200, "sort": "top", "time": "month", "depth": 2, "description": "Critiques of work culture, labor rights advocacy"},
+    {"name": "overemployed",       "limit": 200, "sort": "top", "time": "month", "depth": 2, "description": "Working multiple jobs simultaneously, hustle culture"},
+    # Tech ecosystems
+    {"name": "apple",              "limit": 200, "sort": "top", "time": "month", "depth": 2, "description": "Apple product enthusiasm and ecosystem discussion"},
+    {"name": "Android",            "limit": 200, "sort": "top", "time": "month", "depth": 2, "description": "Android ecosystem, devices, and customization"},
 ]
 
 RATE_LIMIT = 2.0  # seconds between requests
@@ -135,7 +144,7 @@ def fetch_subreddit(config: dict) -> dict:
     """Fetch all data for one subreddit."""
     name = config["name"]
     print(f"\n{'='*60}")
-    print(f"Fetching r/{name} — {config['limit']} posts, sort={config['sort']}, t={config['time']}")
+    print(f"Fetching r/{name} - {config['limit']} posts, sort={config['sort']}, t={config['time']}")
     print(f"{'='*60}")
 
     posts = fetch_posts(name, config["sort"], config["time"], config["limit"])
@@ -147,7 +156,8 @@ def fetch_subreddit(config: dict) -> dict:
     comment_posts = sorted_posts[:min(50, len(sorted_posts))]
 
     for i, post in enumerate(comment_posts):
-        print(f"  Fetching comments for post {i+1}/{len(comment_posts)}: {post['title'][:60]}...")
+        title_safe = post['title'][:60].encode('ascii', errors='replace').decode('ascii')
+        print(f"  Fetching comments for post {i+1}/{len(comment_posts)}: {title_safe}...")
         comments = fetch_comments(name, post["id"], depth=config["depth"])
         all_comments.extend(comments)
         print(f"    Got {len(comments)} comments")
