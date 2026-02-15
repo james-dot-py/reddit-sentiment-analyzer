@@ -16,7 +16,7 @@ export function Layout({ children }: { children: ReactNode }) {
         <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4">
           <Link to="/" className="flex items-center gap-2.5 no-underline">
             <BarChart3 size={20} className="text-[var(--text-primary)]" />
-            <span className="heading text-lg">Raddit.xyz</span>
+            <span className="heading text-lg">Undercurrent</span>
           </Link>
           <div className="flex items-center gap-1">
             <Link to="/history" className={navLinkClass('/history')} title="Analysis Archive">

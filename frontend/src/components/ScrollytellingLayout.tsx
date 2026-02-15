@@ -8,7 +8,6 @@ import { SubredditComparison } from './panels/SubredditComparison';
 import { PolarizingPosts } from './panels/PolarizingPosts';
 import { NLPInsights } from './panels/NLPInsights';
 import { WordClouds } from './panels/WordClouds';
-import { KeywordSentiment } from './panels/KeywordSentiment';
 import { CompareSection } from './CompareSection';
 import { TribalMap } from './panels/TribalMap';
 import { ConceptSearch } from './panels/ConceptSearch';
@@ -178,14 +177,7 @@ export function ScrollytellingLayout({ result }: Props) {
 
       <hr className="editorial-divider" />
 
-      {/* ── Section 6: Keyword Deep-Dive ────────────────────────── */}
-      <section>
-        <KeywordSentiment analysisId={result.analysis_id} />
-      </section>
-
-      <hr className="editorial-divider" />
-
-      {/* ── Section 7: Timeline ─────────────────────────────────── */}
+      {/* ── Section 6: Timeline ──────────────────────────────────── */}
       <section className="space-y-4">
         <div>
           <h2 className="heading text-2xl mb-2">The Timeline</h2>
@@ -199,7 +191,7 @@ export function ScrollytellingLayout({ result }: Props) {
 
       <hr className="editorial-divider" />
 
-      {/* ── Section 8: Community Comparison ──────────────────────── */}
+      {/* ── Section 7: Community Comparison ──────────────────────── */}
       {result.subreddit_summaries.length > 1 && !isFiltered && (
         <>
           <section className="space-y-4">
@@ -215,7 +207,7 @@ export function ScrollytellingLayout({ result }: Props) {
         </>
       )}
 
-      {/* ── Section 9: Language & Themes ─────────────────────────── */}
+      {/* ── Section 8: Language & Themes ─────────────────────────── */}
       <section className="space-y-6">
         <div>
           <h2 className="heading text-2xl mb-2">Language &amp; Themes</h2>
@@ -230,7 +222,7 @@ export function ScrollytellingLayout({ result }: Props) {
 
       <hr className="editorial-divider" />
 
-      {/* ── Section 10: The Extremes ─────────────────────────────── */}
+      {/* ── Section 9: The Extremes ──────────────────────────────── */}
       <section className="space-y-4">
         <div>
           <h2 className="heading text-2xl mb-2">The Extremes</h2>
