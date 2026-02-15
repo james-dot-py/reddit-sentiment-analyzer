@@ -6,11 +6,12 @@ import { Spinner } from '../ui/Spinner';
 import { useKeywordSentiment } from '../../hooks/useKeywordSentiment';
 
 const tooltipStyle = {
-  backgroundColor: 'var(--surface-2)',
-  border: '1px solid var(--glass-border)',
-  borderRadius: '8px',
+  backgroundColor: 'var(--surface-card)',
+  border: '1px solid var(--border-subtle)',
+  borderRadius: '3px',
   fontSize: '12px',
-  boxShadow: 'var(--glass-shadow)',
+  fontFamily: 'var(--font-data)',
+  boxShadow: 'var(--paper-shadow)',
 };
 
 interface Props {
@@ -79,8 +80,8 @@ export function KeywordSentiment({ analysisId }: Props) {
               <YAxis tick={{ fontSize: 11 }} stroke="var(--text-muted)" />
               <Tooltip contentStyle={tooltipStyle} />
               <Legend />
-              <Bar dataKey="positive" name="Positive %" fill="#34d399" radius={[2, 2, 0, 0]} />
-              <Bar dataKey="negative" name="Negative %" fill="#f472b6" radius={[2, 2, 0, 0]} />
+              <Bar dataKey="positive" name="Positive %" fill="#2E5E4E" radius={[2, 2, 0, 0]} />
+              <Bar dataKey="negative" name="Negative %" fill="#8A1C1C" radius={[2, 2, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
           <div className="mt-2 flex justify-center gap-6 text-xs text-[var(--text-muted)]">

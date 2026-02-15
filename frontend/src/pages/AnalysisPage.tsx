@@ -5,7 +5,7 @@ import { fetchSavedAnalysis } from '../api';
 import { useAnalysis } from '../hooks/useAnalysis';
 import { AnalysisForm } from '../components/AnalysisForm';
 import { ProgressBar } from '../components/ProgressBar';
-import { DashboardGrid } from '../components/DashboardGrid';
+import { ScrollytellingLayout } from '../components/ScrollytellingLayout';
 import { SampleGallery } from '../components/SampleGallery';
 import type { AnalysisRequest } from '../types';
 
@@ -68,30 +68,31 @@ export function AnalysisPage() {
       )}
 
       {status === 'done' && result && (
-        <DashboardGrid result={result} />
+        <ScrollytellingLayout result={result} />
       )}
 
       {status === 'idle' && !result && !loadingHistory && (
         <>
-          {/* Hero section — compact */}
-          <div className="pt-8 pb-2 text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl accent-gradient shadow-lg">
-              <BarChart3 size={30} className="text-white" />
+          {/* Hero section — editorial */}
+          <div className="pt-12 pb-4 text-center">
+            <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded accent-gradient shadow">
+              <BarChart3 size={26} className="text-[var(--surface-0)]" />
             </div>
-            <h2 className="mb-2 text-3xl font-bold text-[var(--text-primary)]">
-              SubReddit Sentiment Analyzer
+            <h2 className="heading mb-3 text-4xl text-[var(--text-primary)]">
+              Raddit.xyz
             </h2>
-            <p className="mx-auto max-w-xl text-sm leading-relaxed text-[var(--text-secondary)]">
-              Quantify what communities think — sentiment analysis, NLP insights, and data visualizations for Reddit.
+            <p className="body-text mx-auto max-w-lg text-sm">
+              Decode what communities really believe — tribalism analysis,
+              sentiment decoding, and data journalism for Reddit.
             </p>
-            <div className="mt-4 flex justify-center gap-2">
-              <span className="rounded-full bg-indigo-500/10 border border-indigo-500/20 px-3 py-1 text-xs font-medium text-indigo-400">
+            <div className="mt-5 flex justify-center gap-2">
+              <span className="rounded border border-[var(--border-default)] px-3 py-1 data-text text-xs text-[var(--text-muted)]">
                 RoBERTa NLP
               </span>
-              <span className="rounded-full bg-violet-500/10 border border-violet-500/20 px-3 py-1 text-xs font-medium text-violet-400">
-                spaCy NER
+              <span className="rounded border border-[var(--border-default)] px-3 py-1 data-text text-xs text-[var(--text-muted)]">
+                Tribalism Decoding
               </span>
-              <span className="rounded-full bg-purple-500/10 border border-purple-500/20 px-3 py-1 text-xs font-medium text-purple-400">
+              <span className="rounded border border-[var(--border-default)] px-3 py-1 data-text text-xs text-[var(--text-muted)]">
                 Multi-Community
               </span>
             </div>

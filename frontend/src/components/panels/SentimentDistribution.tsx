@@ -3,11 +3,12 @@ import { Card } from '../ui/Card';
 import type { SubredditSentimentSummary } from '../../types';
 
 const tooltipStyle = {
-  backgroundColor: 'var(--surface-2)',
-  border: '1px solid var(--glass-border)',
-  borderRadius: '8px',
+  backgroundColor: 'var(--surface-card)',
+  border: '1px solid var(--border-subtle)',
+  borderRadius: '3px',
   fontSize: '12px',
-  boxShadow: 'var(--glass-shadow)',
+  fontFamily: 'var(--font-data)',
+  boxShadow: 'var(--paper-shadow)',
 };
 
 interface Props {
@@ -34,7 +35,7 @@ function binData(scores: number[], bins: number = 20) {
 
   return buckets.map((b) => ({
     ...b,
-    fill: b.center < -0.33 ? '#f472b6' : b.center > 0.33 ? '#34d399' : '#818cf8',
+    fill: b.center < -0.33 ? '#8A1C1C' : b.center > 0.33 ? '#2E5E4E' : '#B0B0B0',
   }));
 }
 

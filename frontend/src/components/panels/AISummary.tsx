@@ -7,7 +7,7 @@ export function AISummary({ text }: { text: string }) {
     <Card title="Synthesis" tooltip="A plain-English synthesis of the analysis findings, generated from computed statistics.">
       <div className="space-y-3">
         {paragraphs.map((p, i) => (
-          <p key={i} className="text-sm leading-relaxed text-[var(--text-secondary)]">
+          <p key={i} className="body-text text-sm">
             {p}
           </p>
         ))}

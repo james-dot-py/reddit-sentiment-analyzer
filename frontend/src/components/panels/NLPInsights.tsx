@@ -3,11 +3,12 @@ import { Card } from '../ui/Card';
 import type { NLPInsights as NLPInsightsType } from '../../types';
 
 const tooltipStyle = {
-  backgroundColor: 'var(--surface-2)',
-  border: '1px solid var(--glass-border)',
-  borderRadius: '8px',
+  backgroundColor: 'var(--surface-card)',
+  border: '1px solid var(--border-subtle)',
+  borderRadius: '3px',
   fontSize: '12px',
-  boxShadow: 'var(--glass-shadow)',
+  fontFamily: 'var(--font-data)',
+  boxShadow: 'var(--paper-shadow)',
 };
 
 interface Props {

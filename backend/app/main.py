@@ -24,6 +24,8 @@ from .models import (
     AnalysisRequest,
     AnalysisResponse,
     CommentWithSentiment,
+    ConceptSearchRequest,
+    ConceptSearchResponse,
     ContextSnippet,
     KeywordAnalysisRequest,
     KeywordAnalysisResponse,
@@ -42,6 +44,7 @@ from .models import (
     SentimentStats,
     SubredditSentimentSummary,
     TimeSeriesPoint,
+    TribalAnalysis,
 )
 from .database import delete_analysis as db_delete_analysis
 from .database import get_analysis as db_get_analysis
@@ -49,7 +52,8 @@ from .database import init_db, list_analyses as db_list_analyses, save_analysis 
 from .nlp_analysis import generate_wordcloud_image, run_full_nlp_analysis
 from .reddit_client import reddit_client
 from .sentiment import analyze_batch, preload_model
-from .summarizer import generate_summary
+from .summarizer import generate_summary, generate_tribal_narrative
+from .tribal_logic import build_topic_groups, classify_tribalism, classify_ratioed_posts, concept_search
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -249,7 +253,36 @@ async def _process_fetched_data(
     yield sse_event({
         "stage": "nlp",
         "message": "NLP analysis complete",
-        "progress": 0.85,
+        "progress": 0.8,
+    })
+
+    # ── Stage 4.5: Tribalism classification ────────────────────────────
+    yield sse_event({
+        "stage": "tribal",
+        "message": "Classifying tribal patterns...",
+        "progress": 0.82,
+    })
+
+    topic_groups = build_topic_groups(
+        posts_with_sentiment,
+        comments_with_sentiment,
+        nlp_insights.entities,
+        nlp_insights.bigrams,
+    )
+    tribal_topics = classify_tribalism(topic_groups)
+    ratioed_posts = classify_ratioed_posts(posts_with_sentiment, comments_with_sentiment)
+    tribal_narrative = generate_tribal_narrative(tribal_topics, ratioed_posts)
+
+    tribal_analysis = TribalAnalysis(
+        topics=tribal_topics,
+        ratioed_posts=ratioed_posts,
+        narrative=tribal_narrative,
+    )
+
+    yield sse_event({
+        "stage": "tribal",
+        "message": f"Identified {len(tribal_topics)} tribal topics",
+        "progress": 0.88,
     })
 
     # ── Stage 5: Generate summary ─────────────────────────────────────
@@ -277,6 +310,7 @@ async def _process_fetched_data(
         nlp_insights=nlp_insights,
         summary_text=summary_text,
         sentiment_distribution=sentiment_distribution,
+        tribal_analysis=tribal_analysis,
     )
 
     # Store for later retrieval
@@ -681,6 +715,20 @@ async def keyword_analysis(req: KeywordAnalysisRequest):
         ))
 
     return KeywordAnalysisResponse(analysis_id=req.analysis_id, results=results)
+
+
+# ── Concept search ────────────────────────────────────────────────────────
+
+@app.post("/api/concept-search", response_model=ConceptSearchResponse)
+async def concept_search_endpoint(req: ConceptSearchRequest):
+    """Multi-term concept search across an analysis's posts and comments."""
+    if req.analysis_id not in _analyses:
+        raise HTTPException(status_code=404, detail="Analysis not found")
+
+    analysis = _analyses[req.analysis_id]
+    result = concept_search(analysis.posts, analysis.comments, req.query)
+
+    return ConceptSearchResponse(**result)
 
 
 # ── Word cloud generation ─────────────────────────────────────────────────

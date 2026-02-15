@@ -203,6 +203,46 @@ class KeywordAnalysisResponse(BaseModel):
     results: list[KeywordAnalysisResult]
 
 
+# ── Tribalism Classification ──────────────────────────────────────────────
+
+class TribalClass(str, Enum):
+    sacred = "Sacred"
+    blasphemous = "Blasphemous"
+    controversial = "Controversial"
+    neutral = "Neutral"
+
+
+class TribalTopic(BaseModel):
+    topic: str
+    tribal_class: TribalClass
+    mean_sentiment: float
+    std_dev: float
+    consensus_score: float = Field(description="1 / max(std_dev, 0.05)")
+    mention_count: int
+    sample_texts: list[str] = Field(default_factory=list, description="Up to 3 representative snippets")
+
+
+class TribalAnalysis(BaseModel):
+    topics: list[TribalTopic]
+    ratioed_posts: list[PostWithSentiment]
+    narrative: str = Field("", description="Generated editorial text about tribal findings")
+
+
+class ConceptSearchRequest(BaseModel):
+    query: str = Field(..., description="Comma-separated terms, e.g. 'Bitcoin, BTC, satoshis'")
+    analysis_id: str
+
+
+class ConceptSearchResponse(BaseModel):
+    query: str
+    terms: list[str]
+    matching_post_count: int
+    matching_comment_count: int
+    stats: Optional[SentimentStats] = None
+    topic: Optional[TribalTopic] = None
+    snippets: list[ContextSnippet] = Field(default_factory=list)
+
+
 # ── Full Analysis Response ─────────────────────────────────────────────────
 
 class AnalysisResponse(BaseModel):
@@ -216,6 +256,7 @@ class AnalysisResponse(BaseModel):
     sentiment_distribution: list[float] = Field(
         default_factory=list, description="All compound scores for histogram"
     )
+    tribal_analysis: Optional[TribalAnalysis] = None
 
 
 # ── Progress Updates (for SSE) ─────────────────────────────────────────────

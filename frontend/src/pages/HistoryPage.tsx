@@ -87,7 +87,7 @@ export function HistoryPage() {
             <div
               key={item.id}
               onClick={() => handleLoad(item.id)}
-              className="group glass-card cursor-pointer rounded-2xl p-5 transition-all glow-hover"
+              className="group paper-card cursor-pointer rounded p-5 transition-glass"
             >
               <div className="flex items-center justify-between">
                 <div className="min-w-0 flex-1">

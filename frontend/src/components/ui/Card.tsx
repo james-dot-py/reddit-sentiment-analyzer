@@ -14,7 +14,7 @@ export function Card({ title, tooltip, children, className }: CardProps) {
 
   return (
     <div className={clsx(
-      'glass-card rounded-2xl p-6 transition-glass glow-hover',
+      'paper-card rounded p-6 transition-glass',
       className,
     )}>
       <div className="mb-4 flex items-center gap-2">
@@ -30,7 +30,7 @@ export function Card({ title, tooltip, children, className }: CardProps) {
               onMouseLeave={() => setShowTooltip(false)}
             />
             {showTooltip && (
-              <div className="absolute bottom-6 left-1/2 z-50 w-64 -translate-x-1/2 glass-card rounded-lg p-3 text-xs text-[var(--text-secondary)]">
+              <div className="absolute bottom-6 left-1/2 z-50 w-64 -translate-x-1/2 paper-card rounded p-3 text-xs text-[var(--text-secondary)]">
                 {tooltip}
               </div>
             )}

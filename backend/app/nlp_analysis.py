@@ -157,8 +157,8 @@ def generate_wordcloud_image(texts: list[str], max_words: int = 100, custom_stop
         height=400,
         max_words=max_words,
         stopwords=stopwords,
-        background_color="#1a1a2e",
-        colormap="RdYlGn",
+        background_color="#F9F7F1",
+        colormap="Dark2",
         contour_width=0,
         margin=10,
     )

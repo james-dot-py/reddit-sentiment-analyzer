@@ -1,5 +1,4 @@
 import {
-  CartesianGrid,
   Legend,
   Line,
   LineChart,
@@ -11,14 +10,15 @@ import {
 import { Card } from '../ui/Card';
 import type { TimeSeriesPoint } from '../../types';
 
-const COLORS = ['#818cf8', '#a78bfa', '#c084fc', '#f472b6', '#34d399', '#fbbf24'];
+const COLORS = ['#2E5E4E', '#8A1C1C', '#D4A017', '#4A4A4A', '#757575', '#222222'];
 
 const tooltipStyle = {
-  backgroundColor: 'var(--surface-2)',
-  border: '1px solid var(--glass-border)',
-  borderRadius: '8px',
+  backgroundColor: 'var(--surface-card)',
+  border: '1px solid var(--border-subtle)',
+  borderRadius: '3px',
   fontSize: '12px',
-  boxShadow: 'var(--glass-shadow)',
+  fontFamily: 'var(--font-data)',
+  boxShadow: 'var(--paper-shadow)',
 };
 
 interface Props {
@@ -50,7 +50,7 @@ export function SentimentOverTime({ timeSeries }: Props) {
   if (timeSeries.length === 0) {
     return (
       <Card title="Temporal Dynamics">
-        <p className="text-sm text-[var(--text-muted)]">No time series data available.</p>
+        <p className="body-text text-sm">No time series data available.</p>
       </Card>
     );
   }
@@ -64,9 +64,8 @@ export function SentimentOverTime({ timeSeries }: Props) {
     >
       <ResponsiveContainer width="100%" height={300}>
         <LineChart data={data} margin={{ top: 5, right: 20, bottom: 5, left: 5 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" opacity={0.5} />
-          <XAxis dataKey="date" tick={{ fontSize: 11 }} stroke="var(--text-muted)" />
-          <YAxis domain={[-1, 1]} tick={{ fontSize: 11 }} stroke="var(--text-muted)" />
+          <XAxis dataKey="date" tick={{ fontSize: 11 }} stroke="var(--text-muted)" axisLine={false} tickLine={false} />
+          <YAxis domain={[-1, 1]} tick={{ fontSize: 11 }} stroke="var(--text-muted)" axisLine={false} tickLine={false} />
           <Tooltip contentStyle={tooltipStyle} />
           <Legend />
           {subreddits.map((sub, i) => (

@@ -1,110 +1,188 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Lora:wght@400;500;600&family=Roboto+Mono:wght@400;500&display=swap');
 @import "tailwindcss";
 
-@custom-variant dark (&:where(.dark, .dark *));
-
 :root {
-  --surface-0: #ffffff;
-  --surface-1: #f8fafc;
-  --surface-2: #f1f5f9;
-  --border-subtle: rgba(148, 163, 184, 0.2);
-  --border-default: rgba(148, 163, 184, 0.3);
-  --text-primary: #0f172a;
-  --text-secondary: #64748b;
-  --text-muted: #94a3b8;
-  --accent-from: #6366f1;
-  --accent-to: #8b5cf6;
-  --glass-bg: rgba(255, 255, 255, 0.7);
-  --glass-border: rgba(148, 163, 184, 0.2);
-  --glass-shadow: 0 4px 24px rgba(0, 0, 0, 0.04);
-  --glow-color: rgba(99, 102, 241, 0.15);
-}
+  /* Paper Theme */
+  --surface-0: #F9F7F1;
+  --surface-1: #F5F3ED;
+  --surface-2: #EBE9E3;
+  --surface-card: #FFFFFF;
+  --border-subtle: rgba(34, 34, 34, 0.06);
+  --border-default: rgba(34, 34, 34, 0.12);
 
-.dark {
-  --surface-0: #0a0a0f;
-  --surface-1: #12121a;
-  --surface-2: #1a1a28;
-  --border-subtle: rgba(148, 163, 184, 0.08);
-  --border-default: rgba(148, 163, 184, 0.12);
-  --text-primary: #f1f5f9;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
-  --glass-bg: rgba(18, 18, 26, 0.6);
-  --glass-border: rgba(148, 163, 184, 0.08);
-  --glass-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
-  --glow-color: rgba(99, 102, 241, 0.2);
+  /* Ink */
+  --text-primary: #222222;
+  --text-secondary: #4A4A4A;
+  --text-muted: #757575;
+
+  /* Tribal Classification */
+  --tribal-sacred: #2E5E4E;
+  --tribal-blasphemous: #8A1C1C;
+  --tribal-controversial: #D4A017;
+  --tribal-neutral: #B0B0B0;
+
+  /* Typography */
+  --font-heading: 'Playfair Display', 'Georgia', serif;
+  --font-body: 'Lora', 'Georgia', serif;
+  --font-data: 'Roboto Mono', 'Menlo', monospace;
+
+  /* Paper elevation */
+  --paper-shadow: 0 1px 4px rgba(0, 0, 0, 0.04), 0 2px 8px rgba(0, 0, 0, 0.03);
+  --paper-shadow-hover: 0 2px 8px rgba(0, 0, 0, 0.06), 0 4px 16px rgba(0, 0, 0, 0.04);
+
+  /* Accent (for buttons, interactive elements) */
+  --accent-from: #222222;
+  --accent-to: #4A4A4A;
 }
 
 body {
   margin: 0;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background: var(--surface-0);
+  color: var(--text-primary);
 }
 
-/* Glass card utility */
+/* ── Paper card (replaces glass-card) ─────────────────────────────────── */
+
+.paper-card {
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--paper-shadow);
+  border-radius: 3px;
+}
+
+.paper-card:hover {
+  box-shadow: var(--paper-shadow-hover);
+}
+
+/* Backward compat: redirect glass-card to paper-card */
 .glass-card {
-  background: var(--glass-bg);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid var(--glass-border);
-  box-shadow: var(--glass-shadow);
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--paper-shadow);
+  border-radius: 3px;
 }
 
-/* Accent gradient */
-.accent-gradient {
-  background: linear-gradient(135deg, var(--accent-from), var(--accent-to));
+/* ── Typography utilities ─────────────────────────────────────────────── */
+
+.heading {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
 }
 
-/* Gradient text */
-.accent-text {
-  background: linear-gradient(135deg, var(--accent-from), var(--accent-to));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+.body-text {
+  font-family: var(--font-body);
+  line-height: 1.75;
+  color: var(--text-secondary);
 }
 
-/* Glow effect */
-.glow {
-  box-shadow: 0 0 20px var(--glow-color), 0 0 40px rgba(99, 102, 241, 0.05);
+.data-text {
+  font-family: var(--font-data);
+  font-size: 0.875em;
+  letter-spacing: 0.01em;
 }
 
-.glow-hover:hover {
-  box-shadow: 0 0 24px var(--glow-color), 0 0 48px rgba(99, 102, 241, 0.08);
+/* ── Pull quote ───────────────────────────────────────────────────────── */
+
+.pull-quote {
+  font-family: var(--font-body);
+  font-style: italic;
+  font-size: 1.05em;
+  line-height: 1.7;
+  color: var(--text-secondary);
+  border-left: 3px solid var(--border-default);
+  padding-left: 1.25rem;
+  margin: 1rem 0;
 }
 
-/* Gradient border line */
-.gradient-border-bottom {
-  position: relative;
-}
-.gradient-border-bottom::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
+/* ── Editorial divider ────────────────────────────────────────────────── */
+
+hr.editorial-divider {
+  border: none;
   height: 1px;
-  background: linear-gradient(90deg, transparent, var(--accent-from), var(--accent-to), transparent);
+  background: var(--border-default);
+  margin: 3rem auto;
+  width: 60%;
 }
 
-/* Smooth transitions */
+/* ── Accent gradient (for buttons) ────────────────────────────────────── */
+
+.accent-gradient {
+  background: var(--text-primary);
+  color: var(--surface-0);
+}
+
+.accent-text {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* ── Tribal color badges ──────────────────────────────────────────────── */
+
+.tribal-badge-sacred {
+  color: var(--tribal-sacred);
+  border-color: var(--tribal-sacred);
+}
+
+.tribal-badge-blasphemous {
+  color: var(--tribal-blasphemous);
+  border-color: var(--tribal-blasphemous);
+}
+
+.tribal-badge-controversial {
+  color: var(--tribal-controversial);
+  border-color: var(--tribal-controversial);
+}
+
+.tribal-badge-neutral {
+  color: var(--tribal-neutral);
+  border-color: var(--tribal-neutral);
+}
+
+/* ── Scrollbar (subtle, light theme) ──────────────────────────────────── */
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-default);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* ── Compat: glow classes (no-op in paper theme) ──────────────────────── */
+
+.glow, .glow-hover:hover {
+  /* Intentionally empty — paper theme has no glow */
+}
+
+/* ── Smooth transitions ───────────────────────────────────────────────── */
+
 .transition-glass {
-  transition: box-shadow 0.3s ease, border-color 0.3s ease, transform 0.2s ease;
+  transition: box-shadow 0.3s ease, border-color 0.3s ease;
 }
 
-.dark ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+/* ── Recharts overrides ───────────────────────────────────────────────── */
+
+.recharts-cartesian-grid line {
+  display: none;
 }
 
-.dark ::-webkit-scrollbar-track {
-  background: #0a0a0f;
-}
-
-.dark ::-webkit-scrollbar-thumb {
-  background: #1a1a28;
-  border-radius: 4px;
-}
-
-.dark ::-webkit-scrollbar-thumb:hover {
-  background: #2a2a3a;
+.recharts-text {
+  font-family: var(--font-data);
+  font-size: 11px;
+  fill: var(--text-muted);
 }
