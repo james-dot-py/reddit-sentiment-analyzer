@@ -140,7 +140,7 @@ def fetch_subreddit(config: dict) -> dict:
     """Fetch all data for one subreddit."""
     name = config["name"]
     print(f"\n{'='*60}")
-    print(f"Fetching r/{name} — {config['limit']} posts, sort={config['sort']}, t={config['time']}")
+    print(f"Fetching r/{name} - {config['limit']} posts, sort={config['sort']}, t={config['time']}")
     print(f"{'='*60}")
 
     posts = fetch_posts(name, config["sort"], config["time"], config["limit"])
@@ -152,7 +152,8 @@ def fetch_subreddit(config: dict) -> dict:
     comment_posts = sorted_posts[:min(50, len(sorted_posts))]
 
     for i, post in enumerate(comment_posts):
-        print(f"  Fetching comments for post {i+1}/{len(comment_posts)}: {post['title'][:60]}...")
+        title_safe = post['title'][:60].encode('ascii', errors='replace').decode('ascii')
+        print(f"  Fetching comments for post {i+1}/{len(comment_posts)}: {title_safe}...")
         comments = fetch_comments(name, post["id"], depth=config["depth"])
         all_comments.extend(comments)
         print(f"    Got {len(comments)} comments")
