@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { AnalysisResponse, TribalTopic, ViewMode } from '../types';
+import { renderFormattedText } from '../utils/formatText';
 import { ExportButtons } from './ui/ExportButtons';
 import { AISummary } from './panels/AISummary';
 import { SentimentDistribution } from './panels/SentimentDistribution';
@@ -122,10 +123,10 @@ export function ScrollytellingLayout({ result }: Props) {
         <>
           <section className="space-y-6">
             <div>
-              <h2 className="heading text-2xl mb-3">The Tribal Landscape</h2>
-              <p className="body-text text-sm">
-                {result.tribal_analysis.narrative}
-              </p>
+              <h2 className="heading text-2xl mb-3">The Value Map</h2>
+              <div className="space-y-3">
+                {renderFormattedText(result.tribal_analysis.narrative)}
+              </div>
             </div>
 
             <TribalMap
@@ -156,9 +157,9 @@ export function ScrollytellingLayout({ result }: Props) {
       {/* ── Section 4: Emotional Spectrum ───────────────────────── */}
       <section className="space-y-4">
         <div>
-          <h2 className="heading text-2xl mb-2">The Emotional Spectrum</h2>
+          <h2 className="heading text-2xl mb-2">Sentiment Distribution</h2>
           <p className="body-text text-sm">
-            How are opinions distributed? A tight cluster suggests consensus;
+            How sentiment is distributed across the dataset. A tight cluster suggests consensus;
             a bimodal spread signals polarization.
           </p>
         </div>
@@ -225,10 +226,9 @@ export function ScrollytellingLayout({ result }: Props) {
       {/* ── Section 9: The Extremes ──────────────────────────────── */}
       <section className="space-y-4">
         <div>
-          <h2 className="heading text-2xl mb-2">The Extremes</h2>
+          <h2 className="heading text-2xl mb-2">Outlier Posts</h2>
           <p className="body-text text-sm">
-            The most polarizing posts — the brightest and darkest
-            corners of the discussion.
+            The posts with the strongest sentiment signals — positive and negative.
           </p>
         </div>
         <PolarizingPosts posts={filtered.posts} />
@@ -252,17 +252,17 @@ function TopicDrilldown({ topics }: { topics: import('../types').TribalTopic[] }
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
       <TopicColumn
-        title="Sacred"
+        title="Celebrated"
         topics={sacred}
         color="var(--tribal-sacred)"
       />
       <TopicColumn
-        title="Blasphemous"
+        title="Rejected"
         topics={blasphemous}
         color="var(--tribal-blasphemous)"
       />
       <TopicColumn
-        title="Controversial"
+        title="Divisive"
         topics={controversial}
         color="var(--tribal-controversial)"
       />

@@ -145,8 +145,24 @@ def generate_wordcloud_image(texts: list[str], max_words: int = 100, custom_stop
     stopwords = set(STOPWORDS)
     if custom_stopwords:
         stopwords.update(custom_stopwords)
-    # Add Reddit-specific stop words
-    stopwords.update({"https", "http", "www", "com", "reddit", "amp", "gt", "lt", "deleted", "removed"})
+    # Reddit/web jargon + common filler words that dominate without insight
+    stopwords.update({
+        # Reddit & web
+        "https", "http", "www", "com", "reddit", "amp", "gt", "lt",
+        "deleted", "removed", "edit", "update", "post", "comment",
+        "thread", "sub", "subreddit", "upvote", "downvote",
+        # Common adjectives/adverbs/verbs that add noise
+        "good", "great", "bad", "best", "worst", "better", "worse",
+        "really", "very", "much", "many", "lot", "lots", "always",
+        "never", "still", "even", "also", "just", "like", "get",
+        "got", "going", "go", "make", "made", "thing", "things",
+        "way", "want", "need", "know", "think", "say", "said",
+        "would", "could", "one", "people", "time", "actually",
+        "right", "well", "back", "new", "use", "used", "something",
+        "someone", "anything", "everyone", "nothing", "everything",
+        "yeah", "yes", "lol", "lmao", "im", "dont", "doesnt",
+        "ive", "thats", "youre", "theyre", "isnt", "cant", "wont",
+    })
 
     combined = " ".join(_clean_text(t) for t in texts)
     if not combined.strip():

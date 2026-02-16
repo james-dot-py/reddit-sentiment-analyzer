@@ -1,9 +1,10 @@
-import { BarChart3, ChevronDown, ChevronUp, KeyRound, Loader2 } from 'lucide-react';
+import { ArrowLeft, BarChart3, ChevronDown, ChevronUp, KeyRound, Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { fetchSavedAnalysis } from '../api';
 import { useAnalysis } from '../hooks/useAnalysis';
 import { AnalysisForm } from '../components/AnalysisForm';
+import { DotMatrix } from '../components/DotMatrix';
 import { ProgressBar } from '../components/ProgressBar';
 import { ScrollytellingLayout } from '../components/ScrollytellingLayout';
 import { SampleGallery } from '../components/SampleGallery';
@@ -21,7 +22,7 @@ function computeEstimateSeconds(req: AnalysisRequest): number {
 }
 
 export function AnalysisPage() {
-  const { status, progress, stage, message, result, error, startAnalysis, startSampleAnalysis, cancel, loadResult } = useAnalysis();
+  const { status, progress, stage, message, result, error, startAnalysis, startSampleAnalysis, cancel, loadResult, reset } = useAnalysis();
   const location = useLocation();
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [estimateSeconds, setEstimateSeconds] = useState(0);
@@ -45,8 +46,7 @@ export function AnalysisPage() {
         .then((data) => loadResult(data))
         .catch(() => {})
         .finally(() => setLoadingHistory(false));
-      window.history.replaceState({}, '');
-    }
+}
   }, [location.state, loadResult]);
 
   return (
@@ -68,33 +68,44 @@ export function AnalysisPage() {
       )}
 
       {status === 'done' && result && (
-        <ScrollytellingLayout result={result} />
+        <>
+          <button
+            onClick={reset}
+            className="inline-flex items-center gap-1.5 text-sm text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+          >
+            <ArrowLeft size={14} />
+            Back to communities
+          </button>
+          <ScrollytellingLayout result={result} />
+        </>
       )}
 
       {status === 'idle' && !result && !loadingHistory && (
         <>
           {/* Hero section — editorial */}
-          <div className="pt-12 pb-4 text-center">
-            <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded accent-gradient shadow">
-              <BarChart3 size={26} className="text-[var(--surface-0)]" />
-            </div>
-            <h2 className="heading mb-3 text-4xl text-[var(--text-primary)]">
-              Undercurrent
-            </h2>
-            <p className="body-text mx-auto max-w-lg text-sm">
-              The hidden beliefs of online communities — what's sacred,
-              what's heresy, and what they really fight about.
-            </p>
-            <div className="mt-5 flex justify-center gap-2">
-              <span className="rounded border border-[var(--border-default)] px-3 py-1 data-text text-xs text-[var(--text-muted)]">
-                RoBERTa NLP
-              </span>
-              <span className="rounded border border-[var(--border-default)] px-3 py-1 data-text text-xs text-[var(--text-muted)]">
-                Tribalism Decoding
-              </span>
-              <span className="rounded border border-[var(--border-default)] px-3 py-1 data-text text-xs text-[var(--text-muted)]">
-                Multi-Community
-              </span>
+          <div className="relative pt-12 pb-4 text-center overflow-hidden">
+            <DotMatrix className="absolute inset-0 z-0" />
+            <div className="relative z-10">
+              <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded accent-gradient shadow">
+                <BarChart3 size={26} className="text-[var(--surface-0)]" />
+              </div>
+              <h2 className="heading mb-3 text-4xl text-[var(--text-primary)]">
+                Undercurrent
+              </h2>
+              <p className="body-text mx-auto max-w-lg text-sm">
+                What online communities really think — decoded from the data.
+              </p>
+              <div className="mt-5 flex justify-center gap-2">
+                <span className="rounded border border-[var(--border-default)] px-3 py-1 data-text text-xs text-[var(--text-muted)]">
+                  RoBERTa NLP
+                </span>
+                <span className="rounded border border-[var(--border-default)] px-3 py-1 data-text text-xs text-[var(--text-muted)]">
+                  Community Values
+                </span>
+                <span className="rounded border border-[var(--border-default)] px-3 py-1 data-text text-xs text-[var(--text-muted)]">
+                  Multi-Community
+                </span>
+              </div>
             </div>
           </div>
 

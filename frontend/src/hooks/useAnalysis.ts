@@ -103,5 +103,14 @@ export function useAnalysis() {
     setMessage('');
   }, []);
 
-  return { status, progress, stage, message, result, error, startAnalysis, startSampleAnalysis, cancel, loadResult };
+  const reset = useCallback(() => {
+    setStatus('idle');
+    setResult(null);
+    setError(null);
+    setProgress(0);
+    setStage('');
+    setMessage('');
+  }, []);
+
+  return { status, progress, stage, message, result, error, startAnalysis, startSampleAnalysis, cancel, loadResult, reset };
 }
