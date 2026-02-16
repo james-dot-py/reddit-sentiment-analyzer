@@ -79,11 +79,11 @@ export function AnalysisPage() {
               <BarChart3 size={26} className="text-[var(--surface-0)]" />
             </div>
             <h2 className="heading mb-3 text-4xl text-[var(--text-primary)]">
-              Raddit.xyz
+              Undercurrent
             </h2>
             <p className="body-text mx-auto max-w-lg text-sm">
-              Decode what communities really believe — tribalism analysis,
-              sentiment decoding, and data journalism for Reddit.
+              The hidden beliefs of online communities — what's sacred,
+              what's heresy, and what they really fight about.
             </p>
             <div className="mt-5 flex justify-center gap-2">
               <span className="rounded border border-[var(--border-default)] px-3 py-1 data-text text-xs text-[var(--text-muted)]">

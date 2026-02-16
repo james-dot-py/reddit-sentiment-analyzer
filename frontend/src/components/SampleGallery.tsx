@@ -4,16 +4,21 @@ import { fetchSamples } from '../api';
 import type { SampleInfo } from '../types';
 
 const SUBREDDIT_EMOJI: Record<string, string> = {
-  askreddit: '💬',
-  politics: '🏛️',
-  science: '🔬',
-  worldnews: '🌍',
-  personalfinance: '💰',
-  relationship_advice: '❤️',
-  unpopularopinion: '🔥',
-  technology: '💻',
-  changemyview: '🤔',
-  trueoffmychest: '😤',
+  // Ideological pairs
+  conservative: '🐘',
+  progressive: '✊',
+  atheism: '🔬',
+  christianity: '✝️',
+  // Identity & lifestyle pairs
+  vegan: '🌱',
+  bbq: '🔥',
+  childfree: '🦋',
+  parenting: '👶',
+  antiwork: '✊',
+  overemployed: '💼',
+  // Fandom pairs
+  apple: '🍎',
+  android: '🤖',
 };
 
 interface Props {

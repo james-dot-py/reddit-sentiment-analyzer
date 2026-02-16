@@ -20,28 +20,24 @@ from pathlib import Path
 import requests
 
 SAMPLES_DIR = Path(__file__).resolve().parent.parent / "backend" / "samples"
-USER_AGENT = "SubRedditSentimentAnalyzer/1.0 (sample data fetcher)"
+USER_AGENT = "Undercurrent/2.0 (sample data fetcher)"
 
 SUBREDDITS = [
-    # Tribal pairs — contrasting communities on the same topic
-    # Politics
-    {"name": "Conservative",       "limit": 200, "sort": "top", "time": "month", "depth": 2, "description": "Right-leaning political discourse and conservative values"},
-    {"name": "progressive",        "limit": 200, "sort": "top", "time": "month", "depth": 2, "description": "Left-leaning political discourse and progressive values"},
-    # Religion
-    {"name": "atheism",            "limit": 200, "sort": "top", "time": "month", "depth": 2, "description": "Secular worldview, critiques of religion and faith"},
-    {"name": "Christianity",       "limit": 200, "sort": "top", "time": "month", "depth": 2, "description": "Christian faith, theology, and community support"},
-    # Diet / Food culture
-    {"name": "vegan",              "limit": 200, "sort": "top", "time": "month", "depth": 2, "description": "Plant-based lifestyle advocacy and ethics"},
-    {"name": "BBQ",                "limit": 200, "sort": "top", "time": "month", "depth": 2, "description": "Meat-centric cooking culture and grilling enthusiasm"},
-    # Parenting
-    {"name": "childfree",          "limit": 200, "sort": "top", "time": "month", "depth": 2, "description": "Choosing a child-free lifestyle, venting about societal pressure"},
-    {"name": "Parenting",          "limit": 200, "sort": "top", "time": "month", "depth": 2, "description": "Parenting challenges, milestones, and family life"},
-    # Work culture
-    {"name": "antiwork",           "limit": 200, "sort": "top", "time": "month", "depth": 2, "description": "Critiques of work culture, labor rights advocacy"},
-    {"name": "overemployed",       "limit": 200, "sort": "top", "time": "month", "depth": 2, "description": "Working multiple jobs simultaneously, hustle culture"},
-    # Tech ecosystems
-    {"name": "apple",              "limit": 200, "sort": "top", "time": "month", "depth": 2, "description": "Apple product enthusiasm and ecosystem discussion"},
-    {"name": "Android",            "limit": 200, "sort": "top", "time": "month", "depth": 2, "description": "Android ecosystem, devices, and customization"},
+    # Ideological pairs
+    {"name": "conservative",       "limit": 200, "sort": "top", "time": "week",  "depth": 2, "description": "Right-leaning political identity — patriotism, tradition, and free markets"},
+    {"name": "progressive",        "limit": 200, "sort": "top", "time": "week",  "depth": 2, "description": "Left-leaning political identity — equity, reform, and social justice"},
+    {"name": "atheism",            "limit": 200, "sort": "top", "time": "week",  "depth": 2, "description": "Secular identity — skepticism, science, and critique of religion"},
+    {"name": "Christianity",       "limit": 200, "sort": "top", "time": "week",  "depth": 2, "description": "Faith-based identity — theology, worship, and moral frameworks"},
+    # Identity & lifestyle pairs
+    {"name": "vegan",              "limit": 200, "sort": "top", "time": "week",  "depth": 2, "description": "Plant-based identity — ethics, environment, and dietary conviction"},
+    {"name": "BBQ",                "limit": 200, "sort": "top", "time": "week",  "depth": 2, "description": "Meat culture identity — craft, tradition, and community pride"},
+    {"name": "childfree",          "limit": 200, "sort": "top", "time": "week",  "depth": 2, "description": "Child-free identity — autonomy, lifestyle choice, and social pressure"},
+    {"name": "Parenting",          "limit": 200, "sort": "top", "time": "week",  "depth": 2, "description": "Parenting identity — family values, challenges, and shared wisdom"},
+    {"name": "antiwork",           "limit": 200, "sort": "top", "time": "week",  "depth": 2, "description": "Labor reform identity — worker rights, burnout, and corporate critique"},
+    {"name": "overemployed",       "limit": 200, "sort": "top", "time": "week",  "depth": 2, "description": "Hustle identity — multiple jobs, income stacking, and career hacking"},
+    # Fandom pairs
+    {"name": "apple",              "limit": 200, "sort": "top", "time": "week",  "depth": 2, "description": "Apple ecosystem identity — design, premium experience, and brand loyalty"},
+    {"name": "Android",            "limit": 200, "sort": "top", "time": "week",  "depth": 2, "description": "Android ecosystem identity — customization, openness, and value"},
 ]
 
 RATE_LIMIT = 2.0  # seconds between requests

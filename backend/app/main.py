@@ -59,9 +59,9 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(
-    title="SubReddit Sentiment Analyzer",
-    version="1.0.0",
-    description="Sentiment analysis for Reddit communities",
+    title="Undercurrent",
+    version="2.0.0",
+    description="The hidden beliefs of online communities — tribalism analysis and sentiment decoding for Reddit",
 )
 
 app.add_middleware(
@@ -293,7 +293,8 @@ async def _process_fetched_data(
     })
 
     summary_text = generate_summary(
-        subreddit_summaries, posts_with_sentiment, comments_with_sentiment, nlp_insights
+        subreddit_summaries, posts_with_sentiment, comments_with_sentiment, nlp_insights,
+        tribal_topics=tribal_topics, ratioed_count=len(ratioed_posts),
     )
 
     # ── Build final response ──────────────────────────────────────────
@@ -833,7 +834,7 @@ async def export_pdf(analysis_id: str):
         body_style = ParagraphStyle("CustomBody", parent=styles["BodyText"], fontSize=10, leading=14)
 
         story = []
-        story.append(Paragraph("SubReddit Sentiment Analysis Report", title_style))
+        story.append(Paragraph("Undercurrent — Community Analysis Report", title_style))
         story.append(Spacer(1, 0.3 * inch))
 
         # Subreddit summaries

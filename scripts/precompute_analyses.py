@@ -35,10 +35,12 @@ from backend.app.models import (
     SentimentStats,
     SubredditSentimentSummary,
     TimeSeriesPoint,
+    TribalAnalysis,
 )
 from backend.app.nlp_analysis import run_full_nlp_analysis
 from backend.app.sentiment import analyze_batch, preload_model
-from backend.app.summarizer import generate_summary
+from backend.app.summarizer import generate_summary, generate_tribal_narrative
+from backend.app.tribal_logic import build_topic_groups, classify_tribalism, classify_ratioed_posts
 
 SAMPLES_DIR = PROJECT_ROOT / "backend" / "samples"
 
@@ -153,10 +155,30 @@ def process_sample(sample_path: Path) -> None:
     nlp_comment_texts = [c.comment.body for c in comments_with_sentiment] if comments_with_sentiment else None
     nlp_insights = run_full_nlp_analysis(nlp_post_texts, nlp_comment_texts)
 
+    # Stage 4.5: Tribal analysis
+    print("  Classifying tribal patterns...")
+    topic_groups = build_topic_groups(
+        posts_with_sentiment,
+        comments_with_sentiment,
+        nlp_insights.entities,
+        nlp_insights.bigrams,
+    )
+    tribal_topics = classify_tribalism(topic_groups)
+    ratioed_posts = classify_ratioed_posts(posts_with_sentiment, comments_with_sentiment)
+    tribal_narrative = generate_tribal_narrative(tribal_topics, ratioed_posts)
+
+    tribal_analysis = TribalAnalysis(
+        topics=tribal_topics,
+        ratioed_posts=ratioed_posts,
+        narrative=tribal_narrative,
+    )
+    print(f"  Found {len(tribal_topics)} tribal topics")
+
     # Stage 5: Generate summary
     print("  Generating summary...")
     summary_text = generate_summary(
-        subreddit_summaries, posts_with_sentiment, comments_with_sentiment, nlp_insights
+        subreddit_summaries, posts_with_sentiment, comments_with_sentiment, nlp_insights,
+        tribal_topics=tribal_topics, ratioed_count=len(ratioed_posts),
     )
 
     # Build final response
@@ -173,6 +195,7 @@ def process_sample(sample_path: Path) -> None:
         nlp_insights=nlp_insights,
         summary_text=summary_text,
         sentiment_distribution=sentiment_distribution,
+        tribal_analysis=tribal_analysis,
     )
 
     # Save
