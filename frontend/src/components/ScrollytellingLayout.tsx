@@ -118,12 +118,12 @@ export function ScrollytellingLayout({ result }: Props) {
 
       <hr className="editorial-divider" />
 
-      {/* ── Section 2: Tribal Landscape ─────────────────────────── */}
+      {/* ── Section 2: Sentiment Landscape ─────────────────────────── */}
       {result.tribal_analysis && result.tribal_analysis.topics.length > 0 && (
         <>
           <section className="space-y-6">
             <div>
-              <h2 className="heading text-2xl mb-3">The Value Map</h2>
+              <h2 className="heading text-2xl mb-3">The Sentiment Landscape</h2>
               <div className="space-y-3">
                 {renderFormattedText(result.tribal_analysis.narrative)}
               </div>

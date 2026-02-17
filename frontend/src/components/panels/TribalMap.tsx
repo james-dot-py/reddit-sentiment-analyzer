@@ -101,7 +101,7 @@ export function TribalMap({ tribalAnalysis, highlightTopic }: Props) {
 
   if (data.length === 0) {
     return (
-      <Card title="The Tribal Landscape">
+      <Card title="The Sentiment Landscape">
         <p className="body-text text-sm">
           Not enough data to map tribal patterns. Try analyzing more posts or
           including comments.
@@ -113,7 +113,7 @@ export function TribalMap({ tribalAnalysis, highlightTopic }: Props) {
   const maxY = Math.max(...data.map((d) => d.y), 10);
 
   return (
-    <Card title="The Tribal Landscape">
+    <Card title="The Sentiment Landscape">
       <ResponsiveContainer width="100%" height={420}>
         <ScatterChart margin={{ top: 30, right: 30, bottom: 30, left: 20 }}>
           <XAxis

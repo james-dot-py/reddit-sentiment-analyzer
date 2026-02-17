@@ -1,13 +1,13 @@
-import { ArrowLeft, BarChart3, ChevronDown, ChevronUp, KeyRound, Loader2 } from 'lucide-react';
+import { ArrowLeft, ChevronDown, ChevronUp, KeyRound, Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { fetchSavedAnalysis } from '../api';
 import { useAnalysis } from '../hooks/useAnalysis';
 import { AnalysisForm } from '../components/AnalysisForm';
-import { DotMatrix } from '../components/DotMatrix';
 import { ProgressBar } from '../components/ProgressBar';
 import { ScrollytellingLayout } from '../components/ScrollytellingLayout';
 import { SampleGallery } from '../components/SampleGallery';
+import { HeroVisualization } from '../components/HeroVisualization';
 import type { AnalysisRequest } from '../types';
 
 function computeEstimateSeconds(req: AnalysisRequest): number {
@@ -83,29 +83,33 @@ export function AnalysisPage() {
       {status === 'idle' && !result && !loadingHistory && (
         <>
           {/* Hero section — editorial */}
-          <div className="relative pt-12 pb-4 text-center overflow-hidden">
-            <DotMatrix className="absolute inset-0 z-0" />
-            <div className="relative z-10">
-              <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded accent-gradient shadow">
-                <BarChart3 size={26} className="text-[var(--surface-0)]" />
-              </div>
+          <div className="pt-8 pb-4">
+            <div className="text-center mb-6">
               <h2 className="heading mb-3 text-4xl text-[var(--text-primary)]">
                 Undercurrent
               </h2>
               <p className="body-text mx-auto max-w-lg text-sm">
-                What online communities really think — decoded from the data.
+                Sentiment analysis and natural language processing reveal the
+                hidden patterns in how online communities speak — and what
+                that language says about what they believe.
               </p>
-              <div className="mt-5 flex justify-center gap-2">
-                <span className="rounded border border-[var(--border-default)] px-3 py-1 data-text text-xs text-[var(--text-muted)]">
-                  RoBERTa NLP
-                </span>
-                <span className="rounded border border-[var(--border-default)] px-3 py-1 data-text text-xs text-[var(--text-muted)]">
-                  Community Values
-                </span>
-                <span className="rounded border border-[var(--border-default)] px-3 py-1 data-text text-xs text-[var(--text-muted)]">
-                  Multi-Community
-                </span>
-              </div>
+            </div>
+
+            <HeroVisualization />
+
+            <div className="mt-4 flex justify-center gap-3">
+              <span className="rounded border border-[var(--border-default)] px-3 py-1 data-text text-xs text-[var(--text-muted)]">
+                NLP Classification
+              </span>
+              <span className="rounded border border-[var(--border-default)] px-3 py-1 data-text text-xs text-[var(--text-muted)]">
+                Sentiment Modeling
+              </span>
+              <span className="rounded border border-[var(--border-default)] px-3 py-1 data-text text-xs text-[var(--text-muted)]">
+                Entity Recognition
+              </span>
+              <span className="rounded border border-[var(--border-default)] px-3 py-1 data-text text-xs text-[var(--text-muted)]">
+                Multi-Community
+              </span>
             </div>
           </div>
 

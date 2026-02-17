@@ -69,7 +69,7 @@ export function ConceptSearch({ analysisId, onResult }: Props) {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="e.g. Bitcoin, BTC, satoshis"
+          placeholder="e.g. apple, mango, kiwi"
           className="flex-1 rounded border border-[var(--border-default)] bg-[var(--surface-0)] px-3 py-2 text-sm data-text text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--text-muted)]"
         />
         <button
