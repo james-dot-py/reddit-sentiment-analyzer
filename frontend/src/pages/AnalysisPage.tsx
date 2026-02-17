@@ -1,4 +1,4 @@
-import { BarChart3, ChevronDown, ChevronUp, KeyRound, Loader2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, KeyRound, Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { fetchSavedAnalysis } from '../api';
@@ -7,6 +7,7 @@ import { AnalysisForm } from '../components/AnalysisForm';
 import { ProgressBar } from '../components/ProgressBar';
 import { ScrollytellingLayout } from '../components/ScrollytellingLayout';
 import { SampleGallery } from '../components/SampleGallery';
+import { HeroVisualization } from '../components/HeroVisualization';
 import type { AnalysisRequest } from '../types';
 
 function computeEstimateSeconds(req: AnalysisRequest): number {
@@ -74,23 +75,29 @@ export function AnalysisPage() {
       {status === 'idle' && !result && !loadingHistory && (
         <>
           {/* Hero section — editorial */}
-          <div className="pt-12 pb-4 text-center">
-            <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded accent-gradient shadow">
-              <BarChart3 size={26} className="text-[var(--surface-0)]" />
+          <div className="pt-8 pb-4">
+            <div className="text-center mb-6">
+              <h2 className="heading mb-3 text-4xl text-[var(--text-primary)]">
+                Undercurrent
+              </h2>
+              <p className="body-text mx-auto max-w-lg text-sm">
+                Sentiment analysis and natural language processing reveal the
+                hidden patterns in how online communities speak — and what
+                that language says about what they believe.
+              </p>
             </div>
-            <h2 className="heading mb-3 text-4xl text-[var(--text-primary)]">
-              Undercurrent
-            </h2>
-            <p className="body-text mx-auto max-w-lg text-sm">
-              The hidden beliefs of online communities — what's sacred,
-              what's heresy, and what they really fight about.
-            </p>
-            <div className="mt-5 flex justify-center gap-2">
+
+            <HeroVisualization />
+
+            <div className="mt-4 flex justify-center gap-3">
               <span className="rounded border border-[var(--border-default)] px-3 py-1 data-text text-xs text-[var(--text-muted)]">
-                RoBERTa NLP
+                NLP Classification
               </span>
               <span className="rounded border border-[var(--border-default)] px-3 py-1 data-text text-xs text-[var(--text-muted)]">
-                Tribalism Decoding
+                Sentiment Modeling
+              </span>
+              <span className="rounded border border-[var(--border-default)] px-3 py-1 data-text text-xs text-[var(--text-muted)]">
+                Entity Recognition
               </span>
               <span className="rounded border border-[var(--border-default)] px-3 py-1 data-text text-xs text-[var(--text-muted)]">
                 Multi-Community
