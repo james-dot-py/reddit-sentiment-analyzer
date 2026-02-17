@@ -15,6 +15,79 @@ from .models import NamedEntity, NgramEntry, NLPInsights, TextStatistics
 
 logger = logging.getLogger(__name__)
 
+# ── Shared Reddit / web stop words ───────────────────────────────────────
+# Used by both n-gram extraction and word cloud generation to filter out
+# Reddit boilerplate, common web jargon, and low-signal filler words.
+
+REDDIT_STOP_WORDS: set[str] = {
+    # Reddit & web platform terms
+    "https", "http", "www", "com", "reddit", "amp", "gt", "lt",
+    "deleted", "removed", "edit", "update", "post", "comment",
+    "thread", "sub", "subreddit", "upvote", "downvote",
+    "moderator", "moderators", "mod", "mods", "automod",
+    "automoderator", "bot", "flair", "sidebar", "wiki",
+    "karma", "crosspost", "repost", "ama",
+    "discord", "join", "follow", "subscribe", "unsubscribe",
+    "report", "reported", "reporting", "rule", "rules",
+    "submission", "submissions", "removal", "approve", "approved",
+    # Automod / bot boilerplate vocabulary
+    "performed", "automatically", "action", "concerns",
+    "contact", "message", "questions", "please",
+    "civil", "promote", "socials", "server", "voice",
+    "opinions", "connect", "official", "free",
+    "decided", "heavily", "posting", "thanks",
+    # Sidebar / rules / sticky boilerplate
+    "discussion", "welcome", "personal", "attacks",
+    "read", "individuals", "learn", "strategies",
+    "tips", "experienced", "experts", "community",
+    "guidelines", "allowed", "prohibited",
+    # Common adjectives/adverbs/verbs that add noise
+    "good", "great", "bad", "best", "worst", "better", "worse",
+    "really", "very", "much", "many", "lot", "lots", "always",
+    "never", "still", "even", "also", "just", "like", "get",
+    "got", "going", "go", "make", "made", "thing", "things",
+    "way", "want", "need", "know", "think", "say", "said",
+    "would", "could", "one", "people", "time", "actually",
+    "right", "well", "back", "new", "use", "used", "something",
+    "someone", "anything", "everyone", "nothing", "everything",
+    "yeah", "yes", "lol", "lmao", "im", "dont", "doesnt",
+    "ive", "thats", "youre", "theyre", "isnt", "cant", "wont",
+}
+
+# Multi-word n-gram phrases to suppress — these are Reddit moderation
+# boilerplate and platform noise that appear as bigrams/trigrams but
+# carry no real sentiment signal.
+STOP_NGRAM_PHRASES: set[str] = {
+    # Moderation / automod boilerplate
+    "heavily reported", "auto moderator", "auto mod",
+    "removed rule", "removed comment", "comment removed",
+    "post removed", "removed post", "rule violation",
+    "moderator action", "mod team", "mod action",
+    "message moderators", "contact moderators", "message mods",
+    "action performed", "performed automatically",
+    "automatically please", "please questions",
+    "questions concerns", "thanks posting",
+    "posting civil", "heavily decided",
+    "decided promote", "promote socials",
+    "socials action", "official free",
+    "free server", "server voice",
+    "voice opinions", "opinions server",
+    "server connect",
+    # Platform CTAs
+    "follow join discord", "join discord", "follow join",
+    "discord server", "join server",
+    "subscribe follow", "please subscribe",
+    # Meta-discussion noise
+    "edit update", "edit thanks", "edit typo", "edit grammar",
+    "edit clarify", "edit added", "edit word",
+    "deleted removed", "removed deleted",
+    "upvote downvote", "downvote upvote",
+    # Common Reddit filler bigrams
+    "feel like", "lot people", "pretty much", "make sure",
+    "long time", "first time", "every time", "last time",
+    "end day", "point view",
+}
+
 # Lazy-loaded spaCy model
 _nlp = None
 
@@ -80,6 +153,9 @@ def compute_ngrams(texts: list[str], n: int = 2, top_k: int = 20) -> list[NgramE
         nltk.download("stopwords", quiet=True)
         stop_words = set(stopwords.words("english"))
 
+    # Merge in Reddit-specific stop words so platform jargon is excluded
+    stop_words = stop_words | REDDIT_STOP_WORDS
+
     try:
         nltk.data.find("tokenizers/punkt_tab")
     except LookupError:
@@ -96,9 +172,14 @@ def compute_ngrams(texts: list[str], n: int = 2, top_k: int = 20) -> list[NgramE
         grams = list(nltk.ngrams(tokens, n))
         ngram_counts.update(grams)
 
+    # Filter out known boilerplate n-gram phrases
     results = []
-    for gram, count in ngram_counts.most_common(top_k):
-        results.append(NgramEntry(text=" ".join(gram), count=count))
+    for gram, count in ngram_counts.most_common(top_k * 3):  # over-fetch to compensate for filtering
+        phrase = " ".join(gram)
+        if phrase not in STOP_NGRAM_PHRASES:
+            results.append(NgramEntry(text=phrase, count=count))
+            if len(results) >= top_k:
+                break
     return results
 
 
@@ -145,24 +226,9 @@ def generate_wordcloud_image(texts: list[str], max_words: int = 100, custom_stop
     stopwords = set(STOPWORDS)
     if custom_stopwords:
         stopwords.update(custom_stopwords)
-    # Reddit/web jargon + common filler words that dominate without insight
-    stopwords.update({
-        # Reddit & web
-        "https", "http", "www", "com", "reddit", "amp", "gt", "lt",
-        "deleted", "removed", "edit", "update", "post", "comment",
-        "thread", "sub", "subreddit", "upvote", "downvote",
-        # Common adjectives/adverbs/verbs that add noise
-        "good", "great", "bad", "best", "worst", "better", "worse",
-        "really", "very", "much", "many", "lot", "lots", "always",
-        "never", "still", "even", "also", "just", "like", "get",
-        "got", "going", "go", "make", "made", "thing", "things",
-        "way", "want", "need", "know", "think", "say", "said",
-        "would", "could", "one", "people", "time", "actually",
-        "right", "well", "back", "new", "use", "used", "something",
-        "someone", "anything", "everyone", "nothing", "everything",
-        "yeah", "yes", "lol", "lmao", "im", "dont", "doesnt",
-        "ive", "thats", "youre", "theyre", "isnt", "cant", "wont",
-    })
+    # Merge shared Reddit/web stop words so word cloud stays consistent
+    # with n-gram filtering
+    stopwords.update(REDDIT_STOP_WORDS)
 
     combined = " ".join(_clean_text(t) for t in texts)
     if not combined.strip():

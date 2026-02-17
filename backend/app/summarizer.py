@@ -330,8 +330,9 @@ def _template_summary(
 
     if insights.bigrams:
         top_bigrams = [b.text for b in insights.bigrams[:5]]
+        joined = '", "'.join(top_bigrams)
         para2_parts.append(
-            f"Common two-word phrases include \"{'\", \"'.join(top_bigrams)}\"."
+            f'Common two-word phrases include "{joined}".'
         )
 
     stats = insights.text_stats
