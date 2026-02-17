@@ -22,9 +22,9 @@ const TRIBAL_COLORS: Record<TribalClass, string> = {
 };
 
 const TRIBAL_LABELS: Record<TribalClass, string> = {
-  Sacred: 'Sacred (Idols)',
-  Blasphemous: 'Blasphemous (Taboos)',
-  Controversial: 'Controversial (Battleground)',
+  Sacred: 'Celebrated (Consensus Positive)',
+  Blasphemous: 'Rejected (Consensus Negative)',
+  Controversial: 'Divisive (Split Opinion)',
   Neutral: 'Neutral',
 };
 

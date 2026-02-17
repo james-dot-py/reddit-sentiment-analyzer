@@ -39,7 +39,7 @@ function WordCloudImage({ analysisId, sentiment, label }: { analysisId: string; 
 export function WordClouds({ analysisId }: Props) {
   return (
     <Card
-      title="Lexical Topology"
+      title="Key Terms"
       tooltip="Most frequent words in positive vs. negative posts, with common stop words filtered out."
     >
       <div className="flex flex-col gap-4 sm:flex-row">

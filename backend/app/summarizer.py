@@ -24,31 +24,28 @@ GEMINI_SYSTEM_PROMPT = """\
 You are the editorial voice of a data-journalism tool that decodes online communities.
 
 Your job: take structured analysis data about a Reddit community and write a rich,
-insightful synthesis that reveals what this community truly values, despises, and
-fights about.
+insightful synthesis that reveals what this community celebrates, rejects, and
+disagrees on.
 
 Voice & tone:
 - Sophisticated but approachable — think sharp data journalism for a curious general audience
 - Smart, slightly playful, never academic or dry
 - No buzzwords, no filler, no "it's important to note" or "in conclusion"
-- Reference specific findings by name (actual topics, actual numbers) but weave them
-  into narrative, not bullet points
+- Focus on MEANING and INTERPRETATION — skip raw stat dumps, post counts, and entity lists
 - Surface NON-OBVIOUS insights — don't just restate the data; interpret it
-- Connect tribal patterns to broader human behavior when you can
+- Connect value patterns to broader human behavior when you can
 - Bold claims are fine if the data supports them
 
 Structure:
-- 2-4 paragraphs total
-- First paragraph: the big picture — what kind of community is this and what's its
-  emotional signature?
-- Middle: the tribal decode — what's sacred, what's heresy, what splits the room?
-  Use specific topic names and numbers.
-- Final paragraph: the interesting twist or non-obvious insight that makes someone
-  say "huh, I wouldn't have guessed that"
+- Open with 3-5 bullet points (using `- `) highlighting the most interesting interpretive
+  takeaways. These should be genuine insights, not raw statistics. Think: "This community
+  rallies hardest around X despite being broadly negative" not "37% positive, 63% negative."
+- Follow with 2-3 paragraphs of flowing editorial prose that goes deeper into the patterns,
+  connections, and surprises in the data.
 
-Length: Enough to be substantive, short enough to read in 30 seconds (~200-350 words).
+Length: ~250-400 words total (bullets + prose).
 
-Do NOT use markdown headers, bullet points, or lists. Write in flowing prose paragraphs.
+Use **bold** for topic names and key phrases.
 Do NOT start with "This community" — find a more compelling opening.
 """
 
@@ -110,19 +107,19 @@ def _build_gemini_prompt(
 
         if sacred:
             lines.append("")
-            lines.append("SACRED topics (high positive consensus):")
+            lines.append("CELEBRATED topics (high positive consensus):")
             for t in sacred[:5]:
                 lines.append(f"  - {t.topic}: mean={t.mean_sentiment:+.3f}, "
                              f"mentions={t.mention_count}, std={t.std_dev:.3f}")
 
         if blasphemous:
-            lines.append("BLASPHEMOUS topics (high negative consensus):")
+            lines.append("REJECTED topics (high negative consensus):")
             for t in blasphemous[:5]:
                 lines.append(f"  - {t.topic}: mean={t.mean_sentiment:+.3f}, "
                              f"mentions={t.mention_count}, std={t.std_dev:.3f}")
 
         if controversial:
-            lines.append("CONTROVERSIAL topics (high disagreement):")
+            lines.append("DIVISIVE topics (high disagreement):")
             for t in controversial[:5]:
                 lines.append(f"  - {t.topic}: mean={t.mean_sentiment:+.3f}, "
                              f"mentions={t.mention_count}, std={t.std_dev:.3f}")
@@ -132,7 +129,7 @@ def _build_gemini_prompt(
 
     # Sample post titles by tribal class
     if tribal_topics:
-        for cls_name, cls_val in [("Sacred", TribalClass.sacred), ("Blasphemous", TribalClass.blasphemous)]:
+        for cls_name, cls_val in [("Celebrated", TribalClass.sacred), ("Rejected", TribalClass.blasphemous)]:
             cls_topics = [t for t in tribal_topics if t.tribal_class == cls_val]
             if cls_topics and cls_topics[0].sample_texts:
                 lines.append(f"\nSample {cls_name} content:")
@@ -220,12 +217,12 @@ def generate_tribal_narrative(
 # ── Gemini tribal narrative ──────────────────────────────────────────────
 
 TRIBAL_SYSTEM_PROMPT = """\
-You are decoding the tribal structure of an online community. Given classified topics
-(Sacred, Blasphemous, Controversial), write 1-2 paragraphs that reveal what this
-community worships and what it considers heresy.
+You are decoding the value structure of an online community. Given classified topics
+(Celebrated, Rejected, Divisive), write 1-2 paragraphs that reveal what this
+community celebrates and what it rejects.
 
 Voice: Sharp, insightful data journalism. No headers, no bullets, flowing prose.
-Reference specific topic names and numbers. Surface the non-obvious.
+Use **bold** for topic names. Reference specific numbers. Surface the non-obvious.
 Keep it under 150 words — dense and punchy.
 """
 
@@ -242,19 +239,19 @@ def _gemini_tribal_narrative(
     lines = [f"Total topics classified: {len(topics)}", ""]
 
     if sacred:
-        lines.append("SACRED (community reveres):")
+        lines.append("CELEBRATED (community approves):")
         for t in sacred[:5]:
             lines.append(f"  {t.topic}: sentiment={t.mean_sentiment:+.3f}, "
                          f"mentions={t.mention_count}, consensus={t.consensus_score:.1f}")
 
     if blasphemous:
-        lines.append("BLASPHEMOUS (community condemns):")
+        lines.append("REJECTED (community disapproves):")
         for t in blasphemous[:5]:
             lines.append(f"  {t.topic}: sentiment={t.mean_sentiment:+.3f}, "
                          f"mentions={t.mention_count}")
 
     if controversial:
-        lines.append("CONTROVERSIAL (community divided):")
+        lines.append("DIVISIVE (community split):")
         for t in controversial[:5]:
             lines.append(f"  {t.topic}: sentiment={t.mean_sentiment:+.3f}, "
                          f"std_dev={t.std_dev:.3f}, mentions={t.mention_count}")
@@ -388,13 +385,13 @@ def _template_tribal_narrative(
     if sacred:
         top = sacred[0]
         parts.append(
-            f"This community's most sacred topic is **{top.topic}** — "
+            f"This community's most celebrated topic is **{top.topic}** — "
             f"mentioned {top.mention_count} times with near-universal approval "
             f"(mean sentiment: {top.mean_sentiment:+.3f})."
         )
         if len(sacred) > 1:
             others = ", ".join(f"**{t.topic}**" for t in sacred[1:3])
-            parts.append(f"Other revered topics include {others}.")
+            parts.append(f"Other positively received topics include {others}.")
 
     if blasphemous:
         top = blasphemous[0]
@@ -408,7 +405,7 @@ def _template_tribal_narrative(
         parts.append(
             f"The most divisive topic is **{top.topic}** — "
             f"opinions are fractured with a standard deviation of {top.std_dev:.3f}, "
-            f"making it a genuine battleground."
+            f"making it genuinely divisive."
         )
 
     if ratioed_posts:
@@ -423,12 +420,12 @@ def _template_tribal_narrative(
         if non_neutral:
             parts.append(
                 f"Among {len(topics)} identified topics, "
-                f"{len(non_neutral)} showed notable tribal patterns."
+                f"{len(non_neutral)} showed notable value patterns."
             )
         else:
             parts.append(
                 f"Across {len(topics)} topics, sentiment is relatively uniform — "
-                f"no strong tribal divisions emerged."
+                f"no strong value divisions emerged."
             )
 
     return " ".join(parts)

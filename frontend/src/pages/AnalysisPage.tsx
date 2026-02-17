@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronUp, KeyRound, Loader2 } from 'lucide-react';
+import { ArrowLeft, ChevronDown, ChevronUp, KeyRound, Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { fetchSavedAnalysis } from '../api';
@@ -22,7 +22,7 @@ function computeEstimateSeconds(req: AnalysisRequest): number {
 }
 
 export function AnalysisPage() {
-  const { status, progress, stage, message, result, error, startAnalysis, startSampleAnalysis, cancel, loadResult } = useAnalysis();
+  const { status, progress, stage, message, result, error, startAnalysis, startSampleAnalysis, cancel, loadResult, reset } = useAnalysis();
   const location = useLocation();
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [estimateSeconds, setEstimateSeconds] = useState(0);
@@ -46,8 +46,7 @@ export function AnalysisPage() {
         .then((data) => loadResult(data))
         .catch(() => {})
         .finally(() => setLoadingHistory(false));
-      window.history.replaceState({}, '');
-    }
+}
   }, [location.state, loadResult]);
 
   return (
@@ -69,7 +68,16 @@ export function AnalysisPage() {
       )}
 
       {status === 'done' && result && (
-        <ScrollytellingLayout result={result} />
+        <>
+          <button
+            onClick={reset}
+            className="inline-flex items-center gap-1.5 text-sm text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+          >
+            <ArrowLeft size={14} />
+            Back to communities
+          </button>
+          <ScrollytellingLayout result={result} />
+        </>
       )}
 
       {status === 'idle' && !result && !loadingHistory && (
