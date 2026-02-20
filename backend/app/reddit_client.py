@@ -31,6 +31,7 @@ class RedditClient:
         self._oauth_expires: float = 0
         self._client_id: str = os.environ.get("REDDIT_CLIENT_ID", "")
         self._client_secret: str = os.environ.get("REDDIT_CLIENT_SECRET", "")
+        self._proxy_url: Optional[str] = os.environ.get("REDDIT_PROXY_URL")
         self._cache: dict[str, tuple[float, object]] = {}
         self._cache_ttl = 300  # 5 minutes
 
@@ -61,7 +62,8 @@ class RedditClient:
                 "Reddit API credentials not configured. "
                 "Set REDDIT_CLIENT_ID and REDDIT_CLIENT_SECRET environment variables."
             )
-        async with httpx.AsyncClient() as client:
+        proxy_kwargs = {"proxy": self._proxy_url} if self._proxy_url else {}
+        async with httpx.AsyncClient(**proxy_kwargs) as client:
             resp = await client.post(
                 "https://www.reddit.com/api/v1/access_token",
                 data={"grant_type": "client_credentials"},
@@ -95,7 +97,8 @@ class RedditClient:
         if not self._is_authenticated:
             await self._authenticate()
 
-        async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
+        proxy_kwargs = {"proxy": self._proxy_url} if self._proxy_url else {}
+        async with httpx.AsyncClient(timeout=30, follow_redirects=True, **proxy_kwargs) as client:
             resp = await client.get(url, params=params, headers=self._headers())
             resp.raise_for_status()
             data = resp.json()

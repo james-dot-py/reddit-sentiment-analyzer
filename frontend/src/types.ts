@@ -204,6 +204,11 @@ export interface SampleInfo {
   precomputed: boolean;
 }
 
+export interface SnapshotIndex {
+  weeks: string[];
+  by_subreddit: Record<string, string[]>;
+}
+
 export interface ProgressEvent {
   stage: "started" | "fetching" | "analyzing" | "aggregating" | "nlp" | "tribal" | "summarizing" | "complete" | "error" | "results";
   message?: string;

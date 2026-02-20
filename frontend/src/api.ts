@@ -1,4 +1,4 @@
-import type { AnalysisRequest, AnalysisResponse, KeywordAnalysisResponse, KeywordComparison, ProgressEvent, SampleInfo, WordCloudResponse } from './types';
+import type { AnalysisRequest, AnalysisResponse, KeywordAnalysisResponse, KeywordComparison, ProgressEvent, SampleInfo, SnapshotIndex, WordCloudResponse } from './types';
 
 const BASE_URL = import.meta.env.VITE_API_URL || '';
 
@@ -158,4 +158,16 @@ export async function fetchSavedAnalysis(id: string): Promise<AnalysisResponse> 
 export async function deleteAnalysis(id: string): Promise<void> {
   const res = await fetch(`${BASE_URL}/api/analyses/${id}`, { method: 'DELETE' });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
+}
+
+export async function fetchSnapshotIndex(): Promise<SnapshotIndex> {
+  const res = await fetch(`${BASE_URL}/api/snapshots`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+export async function fetchSnapshot(date: string, subreddit: string): Promise<AnalysisResponse> {
+  const res = await fetch(`${BASE_URL}/api/snapshots/${date}/${subreddit}`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
 }

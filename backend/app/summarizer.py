@@ -150,7 +150,7 @@ def _call_gemini(system_prompt: str, user_prompt: str) -> Optional[str]:
         import google.generativeai as genai
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel(
-            "gemini-2.0-flash",
+            "gemini-2.5-flash",
             system_instruction=system_prompt,
         )
         response = model.generate_content(

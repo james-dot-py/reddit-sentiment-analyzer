@@ -422,6 +422,7 @@ async def analyze(req: AnalysisRequest):
 # ── Sample data endpoints ─────────────────────────────────────────────────
 
 SAMPLES_DIR = Path(__file__).resolve().parent.parent / "samples"
+SNAPSHOTS_DIR = Path(__file__).resolve().parent.parent / "data" / "snapshots"
 
 
 def _load_sample(subreddit: str) -> dict | None:
@@ -887,6 +888,86 @@ async def export_pdf(analysis_id: str):
         media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename=analysis_{analysis_id}.pdf"},
     )
+
+
+# ── Snapshot endpoints ───────────────────────────────────────────────────
+
+
+@app.get("/api/snapshots")
+async def list_snapshots():
+    """Index of all available snapshot weeks and subreddits."""
+    weeks: list[str] = []
+    by_subreddit: dict[str, list[str]] = {}
+
+    if SNAPSHOTS_DIR.exists():
+        for date_dir in sorted(SNAPSHOTS_DIR.iterdir(), reverse=True):
+            if not date_dir.is_dir():
+                continue
+            date_str = date_dir.name
+            has_any = False
+            for sub_dir in sorted(date_dir.iterdir()):
+                if not sub_dir.is_dir():
+                    continue
+                meta_path = sub_dir / "metadata.json"
+                if not meta_path.exists():
+                    continue
+                sub_name = sub_dir.name
+                has_any = True
+                by_subreddit.setdefault(sub_name, [])
+                by_subreddit[sub_name].append(date_str)
+            if has_any and date_str not in weeks:
+                weeks.append(date_str)
+
+    return {"weeks": weeks, "by_subreddit": by_subreddit}
+
+
+@app.get("/api/snapshots/latest")
+async def latest_snapshot():
+    """Return the most recent snapshot date."""
+    if not SNAPSHOTS_DIR.exists():
+        return {"date": None}
+    date_dirs = sorted(
+        (d for d in SNAPSHOTS_DIR.iterdir() if d.is_dir()),
+        reverse=True,
+    )
+    for d in date_dirs:
+        if any((d / sub / "metadata.json").exists() for sub in (d.iterdir() if d.is_dir() else [])):
+            return {"date": d.name}
+    return {"date": None}
+
+
+@app.get("/api/snapshots/{date}/{subreddit}/metadata")
+async def get_snapshot_metadata(date: str, subreddit: str):
+    """Lightweight metadata for a single snapshot."""
+    meta_path = SNAPSHOTS_DIR / date / subreddit.lower() / "metadata.json"
+    if not meta_path.exists():
+        raise HTTPException(status_code=404, detail="Snapshot not found")
+    with open(meta_path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+@app.get("/api/snapshots/{date}/{subreddit}")
+async def get_snapshot(date: str, subreddit: str):
+    """Full AnalysisResponse for a snapshot. Caches in memory like existing endpoints."""
+    sub_lower = subreddit.lower()
+    cache_key = f"snapshot_{sub_lower}_{date}"
+
+    if cache_key in _analyses:
+        return _analyses[cache_key]
+
+    analysis_path = SNAPSHOTS_DIR / date / sub_lower / "analysis.json"
+    if not analysis_path.exists():
+        raise HTTPException(status_code=404, detail="Snapshot not found")
+
+    with open(analysis_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    result = AnalysisResponse(**data)
+    _analyses[cache_key] = result
+    _analysis_posts[cache_key] = result.posts
+    _analysis_comments[cache_key] = result.comments
+
+    return result
 
 
 # ── History endpoints ────────────────────────────────────────────────────

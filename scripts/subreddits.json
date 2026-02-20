@@ -1,0 +1,14 @@
+[
+  {"name": "conservative",  "description": "Right-leaning political discourse and conservative values",      "limit": 200, "sort": "top", "time": "week", "depth": 2},
+  {"name": "progressive",   "description": "Left-leaning political discourse and progressive values",        "limit": 200, "sort": "top", "time": "week", "depth": 2},
+  {"name": "atheism",       "description": "Secular worldview, critiques of religion and faith",            "limit": 200, "sort": "top", "time": "week", "depth": 2},
+  {"name": "Christianity",  "description": "Christian faith, theology, and community support",              "limit": 200, "sort": "top", "time": "week", "depth": 2},
+  {"name": "vegan",         "description": "Plant-based lifestyle advocacy and ethics",                     "limit": 200, "sort": "top", "time": "week", "depth": 2},
+  {"name": "BBQ",           "description": "Meat-centric cooking culture and grilling enthusiasm",          "limit": 200, "sort": "top", "time": "week", "depth": 2},
+  {"name": "childfree",     "description": "Choosing a child-free lifestyle, venting about societal pressure", "limit": 200, "sort": "top", "time": "week", "depth": 2},
+  {"name": "Parenting",     "description": "Parenting challenges, milestones, and family life",             "limit": 200, "sort": "top", "time": "week", "depth": 2},
+  {"name": "antiwork",      "description": "Critiques of work culture, labor rights advocacy",              "limit": 200, "sort": "top", "time": "week", "depth": 2},
+  {"name": "overemployed",  "description": "Working multiple jobs simultaneously, hustle culture",          "limit": 200, "sort": "top", "time": "week", "depth": 2},
+  {"name": "apple",         "description": "Apple product enthusiasm and ecosystem discussion",             "limit": 200, "sort": "top", "time": "week", "depth": 2},
+  {"name": "Android",       "description": "Android ecosystem, devices, and customization",                "limit": 200, "sort": "top", "time": "week", "depth": 2}
+]
