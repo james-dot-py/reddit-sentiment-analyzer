@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react';
 import type { AnalysisResponse, TribalTopic, ViewMode } from '../types';
-import { renderFormattedText } from '../utils/formatText';
 import { ExportButtons } from './ui/ExportButtons';
 import { AISummary } from './panels/AISummary';
 import { SentimentDistribution } from './panels/SentimentDistribution';
@@ -122,12 +121,7 @@ export function ScrollytellingLayout({ result }: Props) {
       {result.tribal_analysis && result.tribal_analysis.topics.length > 0 && (
         <>
           <section className="space-y-6">
-            <div>
-              <h2 className="heading text-2xl mb-3">The Sentiment Landscape</h2>
-              <div className="space-y-3">
-                {renderFormattedText(result.tribal_analysis.narrative)}
-              </div>
-            </div>
+            <h2 className="heading text-2xl mb-3">The Sentiment Landscape</h2>
 
             <TribalMap
               tribalAnalysis={result.tribal_analysis}
