@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import type { AnalysisResponse, TribalTopic, ViewMode } from '../types';
+import type { AnalysisResponse, ViewMode } from '../types';
 import { ExportButtons } from './ui/ExportButtons';
 import { AISummary } from './panels/AISummary';
 import { SentimentDistribution } from './panels/SentimentDistribution';
@@ -10,7 +10,6 @@ import { NLPInsights } from './panels/NLPInsights';
 import { WordClouds } from './panels/WordClouds';
 import { CompareSection } from './CompareSection';
 import { TribalMap } from './panels/TribalMap';
-import { ConceptSearch } from './panels/ConceptSearch';
 import { Glossary } from './Glossary';
 
 interface Props {
@@ -19,7 +18,6 @@ interface Props {
 
 export function ScrollytellingLayout({ result }: Props) {
   const [viewMode, setViewMode] = useState<ViewMode>('combined');
-  const [highlightTopic, setHighlightTopic] = useState<TribalTopic | null>(null);
 
   const subreddits = result.subreddit_summaries.map((s) => s.subreddit);
   const showToggle = subreddits.length > 1;
@@ -123,24 +121,11 @@ export function ScrollytellingLayout({ result }: Props) {
           <section className="space-y-6">
             <h2 className="heading text-2xl mb-3">The Sentiment Landscape</h2>
 
-            <TribalMap
-              tribalAnalysis={result.tribal_analysis}
-              highlightTopic={highlightTopic}
-            />
+            <TribalMap tribalAnalysis={result.tribal_analysis} />
 
             {/* Drilldown: Sacred & Blasphemous topics */}
             <TopicDrilldown
               topics={result.tribal_analysis.topics}
-            />
-          </section>
-
-          <hr className="editorial-divider" />
-
-          {/* ── Section 3: Concept Explorer ──────────────────────── */}
-          <section>
-            <ConceptSearch
-              analysisId={result.analysis_id}
-              onResult={setHighlightTopic}
             />
           </section>
 

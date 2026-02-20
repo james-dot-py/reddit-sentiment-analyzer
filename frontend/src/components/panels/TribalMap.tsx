@@ -12,7 +12,7 @@ import {
   Label,
 } from 'recharts';
 import { Card } from '../ui/Card';
-import type { TribalAnalysis, TribalClass, TribalTopic } from '../../types';
+import type { TribalAnalysis, TribalClass } from '../../types';
 
 const TRIBAL_COLORS: Record<TribalClass, string> = {
   Sacred: '#2E5E4E',
@@ -36,12 +36,10 @@ interface ScatterPoint {
   tribal_class: TribalClass;
   fill: string;
   sample: string;
-  isHighlight?: boolean;
 }
 
 interface Props {
   tribalAnalysis: TribalAnalysis;
-  highlightTopic?: TribalTopic | null;
 }
 
 function CustomTooltip({ active, payload }: any) {
@@ -70,9 +68,9 @@ function CustomTooltip({ active, payload }: any) {
   );
 }
 
-export function TribalMap({ tribalAnalysis, highlightTopic }: Props) {
+export function TribalMap({ tribalAnalysis }: Props) {
   const data = useMemo(() => {
-    const points: ScatterPoint[] = tribalAnalysis.topics.map((t) => ({
+    return tribalAnalysis.topics.map((t) => ({
       x: t.mean_sentiment,
       y: t.consensus_score,
       z: t.mention_count,
@@ -81,23 +79,7 @@ export function TribalMap({ tribalAnalysis, highlightTopic }: Props) {
       fill: TRIBAL_COLORS[t.tribal_class],
       sample: t.sample_texts[0] || '',
     }));
-
-    // Add highlighted concept search result
-    if (highlightTopic) {
-      points.push({
-        x: highlightTopic.mean_sentiment,
-        y: highlightTopic.consensus_score,
-        z: highlightTopic.mention_count,
-        topic: highlightTopic.topic,
-        tribal_class: highlightTopic.tribal_class,
-        fill: '#222222',
-        sample: highlightTopic.sample_texts[0] || '',
-        isHighlight: true,
-      });
-    }
-
-    return points;
-  }, [tribalAnalysis.topics, highlightTopic]);
+  }, [tribalAnalysis.topics]);
 
   if (data.length === 0) {
     return (
@@ -111,10 +93,13 @@ export function TribalMap({ tribalAnalysis, highlightTopic }: Props) {
   }
 
   const maxY = Math.max(...data.map((d) => d.y), 10);
+  // Scale chart height to the actual consensus range so low-consensus charts
+  // don't have excessive empty space. Clamp between 220px and 420px.
+  const chartHeight = Math.max(220, Math.min(420, Math.round(maxY * 16)));
 
   return (
     <Card title="The Sentiment Landscape">
-      <ResponsiveContainer width="100%" height={420}>
+      <ResponsiveContainer width="100%" height={chartHeight}>
         <ScatterChart margin={{ top: 30, right: 30, bottom: 30, left: 20 }}>
           <XAxis
             type="number"
@@ -171,9 +156,7 @@ export function TribalMap({ tribalAnalysis, highlightTopic }: Props) {
               <Cell
                 key={i}
                 fill={entry.fill}
-                fillOpacity={entry.isHighlight ? 1 : entry.tribal_class === 'Neutral' ? 0.35 : 0.8}
-                stroke={entry.isHighlight ? '#222' : 'none'}
-                strokeWidth={entry.isHighlight ? 2 : 0}
+                fillOpacity={entry.tribal_class === 'Neutral' ? 0.35 : 0.8}
               />
             ))}
           </Scatter>
