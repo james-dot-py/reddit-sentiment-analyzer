@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import { streamAnalysis, streamSampleAnalysis } from '../api';
+import { fetchSnapshot, streamAnalysis, streamSampleAnalysis } from '../api';
 import type { AnalysisRequest, AnalysisResponse } from '../types';
 
 export type AnalysisStatus = 'idle' | 'loading' | 'done' | 'error';
@@ -103,6 +103,25 @@ export function useAnalysis() {
     setMessage('');
   }, []);
 
+  const loadSnapshot = useCallback(async (date: string, subreddit: string) => {
+    setStatus('loading');
+    setProgress(0);
+    setResult(null);
+    setError(null);
+    setStage('');
+    setMessage('');
+    try {
+      const data = await fetchSnapshot(date, subreddit);
+      setResult(data);
+      setStatus('done');
+      setProgress(1);
+      setStage('complete');
+    } catch (err) {
+      setStatus('error');
+      setError((err as Error).message);
+    }
+  }, []);
+
   const reset = useCallback(() => {
     setStatus('idle');
     setResult(null);
@@ -112,5 +131,5 @@ export function useAnalysis() {
     setMessage('');
   }, []);
 
-  return { status, progress, stage, message, result, error, startAnalysis, startSampleAnalysis, cancel, loadResult, reset };
+  return { status, progress, stage, message, result, error, startAnalysis, startSampleAnalysis, cancel, loadResult, loadSnapshot, reset };
 }

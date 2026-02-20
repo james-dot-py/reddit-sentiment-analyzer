@@ -1,14 +1,15 @@
-import { ArrowLeft, ChevronDown, ChevronUp, KeyRound, Loader2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, KeyRound, Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { fetchSavedAnalysis } from '../api';
+import { fetchSavedAnalysis, fetchSnapshotIndex } from '../api';
 import { useAnalysis } from '../hooks/useAnalysis';
 import { AnalysisForm } from '../components/AnalysisForm';
 import { ProgressBar } from '../components/ProgressBar';
 import { ScrollytellingLayout } from '../components/ScrollytellingLayout';
 import { SampleGallery } from '../components/SampleGallery';
+import { WeekSelector } from '../components/WeekSelector';
 import { HeroVisualization } from '../components/HeroVisualization';
-import type { AnalysisRequest } from '../types';
+import type { AnalysisRequest, SnapshotIndex } from '../types';
 
 function computeEstimateSeconds(req: AnalysisRequest): number {
   const numSubs = req.subreddits.length;
@@ -22,21 +23,37 @@ function computeEstimateSeconds(req: AnalysisRequest): number {
 }
 
 export function AnalysisPage() {
-  const { status, progress, stage, message, result, error, startAnalysis, startSampleAnalysis, cancel, loadResult, reset } = useAnalysis();
+  const { status, progress, stage, message, result, error, startAnalysis, cancel, loadResult, loadSnapshot, reset } = useAnalysis();
   const location = useLocation();
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [estimateSeconds, setEstimateSeconds] = useState(0);
   const [customExpanded, setCustomExpanded] = useState(false);
+
+  const [selectedSubreddit, setSelectedSubreddit] = useState<string | null>(null);
+  const [snapshotIndex, setSnapshotIndex] = useState<SnapshotIndex | null>(null);
+
+  // Fetch snapshot index on mount
+  useEffect(() => {
+    fetchSnapshotIndex().then(setSnapshotIndex).catch(() => {});
+  }, []);
 
   const handleSubmit = useCallback((req: AnalysisRequest) => {
     setEstimateSeconds(computeEstimateSeconds(req));
     startAnalysis(req);
   }, [startAnalysis]);
 
-  const handleSampleSelect = useCallback((subreddit: string) => {
-    setEstimateSeconds(45);
-    startSampleAnalysis(subreddit);
-  }, [startSampleAnalysis]);
+  const handleSubredditPick = useCallback((subreddit: string) => {
+    setSelectedSubreddit(subreddit);
+  }, []);
+
+  const handleWeekSelect = useCallback((week: string) => {
+    if (selectedSubreddit) loadSnapshot(week, selectedSubreddit);
+  }, [selectedSubreddit, loadSnapshot]);
+
+  const handleBack = useCallback(() => {
+    setSelectedSubreddit(null);
+    reset();
+  }, [reset]);
 
   useEffect(() => {
     const state = location.state as { loadAnalysisId?: string } | null;
@@ -46,8 +63,16 @@ export function AnalysisPage() {
         .then((data) => loadResult(data))
         .catch(() => {})
         .finally(() => setLoadingHistory(false));
-}
+    }
   }, [location.state, loadResult]);
+
+  // Derive selected week from result's analysis_id (format: snapshot_{sub}_{date})
+  const selectedWeek = result?.analysis_id?.match(/snapshot_[^_]+_(\d{4}-\d{2}-\d{2})/)?.[1] ?? null;
+
+  const availableWeeks =
+    selectedSubreddit && snapshotIndex
+      ? (snapshotIndex.by_subreddit[selectedSubreddit.toLowerCase()] ?? [])
+      : [];
 
   return (
     <div className="space-y-6">
@@ -69,18 +94,29 @@ export function AnalysisPage() {
 
       {status === 'done' && result && (
         <>
-          <button
-            onClick={reset}
-            className="inline-flex items-center gap-1.5 text-sm text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
-          >
-            <ArrowLeft size={14} />
-            Back to communities
-          </button>
+          <WeekSelector
+            subreddit={selectedSubreddit ?? result.subreddit_summaries[0]?.subreddit ?? ''}
+            availableWeeks={availableWeeks}
+            selectedWeek={selectedWeek}
+            onSelect={handleWeekSelect}
+            onBack={handleBack}
+            compact
+          />
           <ScrollytellingLayout result={result} />
         </>
       )}
 
-      {status === 'idle' && !result && !loadingHistory && (
+      {status === 'idle' && !result && !loadingHistory && selectedSubreddit && (
+        <WeekSelector
+          subreddit={selectedSubreddit}
+          availableWeeks={availableWeeks}
+          selectedWeek={selectedWeek}
+          onSelect={handleWeekSelect}
+          onBack={handleBack}
+        />
+      )}
+
+      {status === 'idle' && !result && !loadingHistory && !selectedSubreddit && (
         <>
           {/* Hero section — editorial */}
           <div className="pt-8 pb-4">
@@ -114,7 +150,7 @@ export function AnalysisPage() {
           </div>
 
           {/* Sample Gallery — the star of the page */}
-          <SampleGallery onSelect={handleSampleSelect} disabled={false} />
+          <SampleGallery onSubredditPick={handleSubredditPick} disabled={false} />
 
           {/* Collapsible custom analysis section */}
           <div className="pt-2">
