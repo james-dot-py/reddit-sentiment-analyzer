@@ -23,7 +23,7 @@ function computeEstimateSeconds(req: AnalysisRequest): number {
 }
 
 export function AnalysisPage() {
-  const { status, progress, stage, message, result, error, startAnalysis, cancel, loadResult, loadSnapshot, reset } = useAnalysis();
+  const { status, progress, stage, message, result, error, startAnalysis, startSampleAnalysis, cancel, loadResult, loadSnapshot, reset } = useAnalysis();
   const location = useLocation();
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [estimateSeconds, setEstimateSeconds] = useState(0);
@@ -44,7 +44,13 @@ export function AnalysisPage() {
 
   const handleSubredditPick = useCallback((subreddit: string) => {
     setSelectedSubreddit(subreddit);
-  }, []);
+    // If the snapshot index is loaded and has no weekly data yet for this
+    // subreddit, fall back to the precomputed sample analysis immediately.
+    const weeks = snapshotIndex?.by_subreddit[subreddit.toLowerCase()] ?? [];
+    if (snapshotIndex && weeks.length === 0) {
+      startSampleAnalysis(subreddit);
+    }
+  }, [snapshotIndex, startSampleAnalysis]);
 
   const handleWeekSelect = useCallback((week: string) => {
     if (selectedSubreddit) loadSnapshot(week, selectedSubreddit);
