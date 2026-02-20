@@ -157,7 +157,7 @@ def _call_gemini(system_prompt: str, user_prompt: str) -> Optional[str]:
             user_prompt,
             generation_config=genai.types.GenerationConfig(
                 temperature=0.7,
-                max_output_tokens=800,
+                max_output_tokens=8192,
             ),
         )
         text = response.text.strip()
