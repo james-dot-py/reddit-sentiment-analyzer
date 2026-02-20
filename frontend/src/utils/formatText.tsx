@@ -21,14 +21,15 @@ export function renderFormattedText(text: string): ReactNode[] {
 
   return blocks.map((block, i) => {
     const lines = block.split('\n').filter(Boolean);
-    const isBulletBlock = lines.length > 0 && lines.every((l) => l.trimStart().startsWith('- '));
+    const isBulletLine = (l: string) => /^\s*[-*]\s+/.test(l);
+    const isBulletBlock = lines.length > 0 && lines.every(isBulletLine);
 
     if (isBulletBlock) {
       return (
         <ul key={i} className="list-disc pl-5 space-y-1">
           {lines.map((line, j) => (
             <li key={j} className="body-text text-sm">
-              {renderInlineFormatting(line.replace(/^\s*-\s*/, ''))}
+              {renderInlineFormatting(line.replace(/^\s*[-*]\s+/, ''))}
             </li>
           ))}
         </ul>
