@@ -1,6 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { ChevronDown, RefreshCw, Loader2 } from 'lucide-react';
+import { ChevronDown, RefreshCw, Calendar, BarChart3 } from 'lucide-react';
 import { useDashboard } from '../hooks/useDashboard';
 import { ScoreDisplay } from '../components/dashboard/ScoreDisplay';
 import { NarrativeSection } from '../components/dashboard/NarrativeSection';
@@ -9,7 +9,16 @@ import { SubredditCard } from '../components/dashboard/SubredditCard';
 import { ThemeChart } from '../components/dashboard/ThemeChart';
 import { CommunityValues } from '../components/dashboard/CommunityValues';
 import { EvidenceTable } from '../components/dashboard/EvidenceTable';
+import { DashboardSkeleton } from '../components/dashboard/Skeleton';
+import { fetchAvailableWeeks } from '../api';
 import type { ThemeEntry, EvidencePost, CommunityAlignment } from '../types';
+
+function formatWeek(dateStr: string): string {
+  try {
+    const d = new Date(dateStr + 'T12:00:00Z');
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+  } catch { return dateStr; }
+}
 
 export function DashboardPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -19,14 +28,16 @@ export function DashboardPage() {
 
   const { projects, dashboard, trends, loading, error, refresh } = useDashboard(projectId, brandId, week);
 
+  // Available weeks for week selector
+  const [availableWeeks, setAvailableWeeks] = useState<string[]>([]);
+  useEffect(() => {
+    fetchAvailableWeeks().then(r => setAvailableWeeks(r.available_weeks)).catch(() => {});
+  }, []);
+
   // Derive selected project & brand objects
   const selectedProject = useMemo(
     () => projects.find(p => p.project_id === projectId),
     [projects, projectId],
-  );
-  const selectedBrand = useMemo(
-    () => selectedProject?.brands.find(b => b.brand_id === brandId),
-    [selectedProject, brandId],
   );
 
   // Auto-select first project and brand if none selected
@@ -79,7 +90,6 @@ export function DashboardPage() {
     return { aligned_values: [...values], friction_points: [...frictions] };
   }, [dashboard]);
 
-  // Aggregate the first available narrative (primary subreddit)
   const primaryNarrative = useMemo(() => {
     if (!dashboard?.week_subreddits.length) return '';
     return dashboard.week_subreddits
@@ -88,7 +98,6 @@ export function DashboardPage() {
       .join('\n\n---\n\n');
   }, [dashboard]);
 
-  // Aggregate score components (average across subreddits)
   const avgComponents = useMemo(() => {
     if (!dashboard?.week_subreddits.length) {
       return { sentiment_mix: 50, intensity: 50, trajectory: 50, community_alignment: 50 };
@@ -104,14 +113,12 @@ export function DashboardPage() {
     };
   }, [dashboard]);
 
-  // Aggregate score (average)
   const avgScore = useMemo(() => {
     if (!dashboard?.week_subreddits.length) return 0;
     const scores = dashboard.week_subreddits.map(s => s.synthesis.undercurrent_score);
     return Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
   }, [dashboard]);
 
-  // Pick the "worst" status tag
   const aggregatedStatus = useMemo(() => {
     if (!dashboard?.week_subreddits.length) return 'stable' as const;
     const order = ['crisis', 'declining', 'at_risk', 'watch', 'stable', 'positive', 'thriving'] as const;
@@ -122,11 +129,39 @@ export function DashboardPage() {
     return 'stable' as const;
   }, [dashboard]);
 
+  // Helper to set params while preserving existing ones
+  function updateParams(updates: Record<string, string | undefined>) {
+    const next: Record<string, string> = {};
+    if (projectId) next.project = projectId;
+    if (brandId) next.brand = brandId;
+    if (week) next.week = week;
+    for (const [k, v] of Object.entries(updates)) {
+      if (v) next[k] = v;
+      else delete next[k];
+    }
+    setSearchParams(next);
+  }
+
   // ── Render ─────────────────────────────────────────────────────────────
+
+  // Welcome state — no projects loaded yet or none selected
+  if (!loading && projects.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 space-y-6">
+        <BarChart3 size={48} className="text-[var(--text-muted)]" />
+        <h1 className="heading text-3xl">Undercurrent</h1>
+        <p className="body-text text-[var(--text-secondary)] text-center max-w-md">
+          Longitudinal brand intelligence from Reddit communities.
+          Configure a project and run the pipeline to get started.
+        </p>
+        <p className="text-xs text-[var(--text-muted)]">Built by Jimmy Friedman</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      {/* Navigation bar: project + brand selectors */}
+      {/* Navigation bar */}
       <div className="flex flex-wrap items-center gap-3">
         {/* Project selector */}
         <div className="relative">
@@ -154,7 +189,7 @@ export function DashboardPage() {
             {selectedProject.brands.map(b => (
               <button
                 key={b.brand_id}
-                onClick={() => setSearchParams({ project: projectId!, brand: b.brand_id })}
+                onClick={() => updateParams({ brand: b.brand_id })}
                 className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
                   b.brand_id === brandId
                     ? 'bg-[var(--text-primary)] text-[var(--surface-0)]'
@@ -168,7 +203,32 @@ export function DashboardPage() {
           </div>
         )}
 
+        {/* Week selector */}
+        {availableWeeks.length > 0 && (
+          <div className="relative">
+            <Calendar size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-[var(--text-muted)]" />
+            <select
+              value={week || ''}
+              onChange={e => updateParams({ week: e.target.value || undefined })}
+              className="appearance-none rounded border border-[var(--border-default)] bg-[var(--surface-card)] pl-7 pr-8 py-1.5 text-xs text-[var(--text-secondary)] cursor-pointer"
+            >
+              <option value="">Latest week</option>
+              {availableWeeks.map(w => (
+                <option key={w} value={w}>{formatWeek(w)}</option>
+              ))}
+            </select>
+            <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-[var(--text-muted)]" />
+          </div>
+        )}
+
         <div className="flex-1" />
+
+        {/* Snapshot date */}
+        {dashboard?.snapshot_date && (
+          <span className="text-[10px] text-[var(--text-muted)] data-text">
+            {formatWeek(dashboard.snapshot_date)}
+          </span>
+        )}
 
         {/* Refresh */}
         <button
@@ -180,15 +240,11 @@ export function DashboardPage() {
         </button>
       </div>
 
-      {/* Loading state */}
-      {loading && (
-        <div className="flex items-center justify-center py-20">
-          <Loader2 size={24} className="animate-spin text-[var(--text-muted)]" />
-        </div>
-      )}
+      {/* Loading skeleton */}
+      {loading && <DashboardSkeleton />}
 
       {/* Error state */}
-      {error && (
+      {error && !loading && (
         <div className="paper-card p-6 text-center">
           <p className="text-sm text-red-600">{error}</p>
           <button
@@ -200,20 +256,23 @@ export function DashboardPage() {
         </div>
       )}
 
-      {/* Empty state (no project/brand selected) */}
+      {/* Empty state */}
       {!loading && !error && !dashboard && projectId && brandId && (
         <div className="paper-card p-12 text-center">
+          <BarChart3 size={32} className="mx-auto text-[var(--text-muted)] mb-3" />
           <p className="heading text-xl text-[var(--text-secondary)]">No data yet</p>
-          <p className="text-sm text-[var(--text-muted)] mt-2">
-            Run the pipeline to generate brand intelligence data.
+          <p className="text-sm text-[var(--text-muted)] mt-2 max-w-sm mx-auto">
+            Run the weekly pipeline to generate brand intelligence data for this project.
           </p>
+          <code className="block mt-4 text-xs data-text text-[var(--text-muted)] bg-[var(--surface-1)] rounded px-3 py-2 max-w-sm mx-auto">
+            python scripts/weekly_pipeline.py --project {projectId}
+          </code>
         </div>
       )}
 
       {/* Dashboard content */}
       {!loading && dashboard && (
         <>
-          {/* Section A: Score header */}
           <ScoreDisplay
             score={avgScore}
             status={aggregatedStatus}
@@ -221,7 +280,6 @@ export function DashboardPage() {
             brandName={dashboard.brand_name}
           />
 
-          {/* Section B: Narrative + Section C: Trend chart */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <NarrativeSection
               narrative={primaryNarrative}
@@ -234,7 +292,6 @@ export function DashboardPage() {
             />
           </div>
 
-          {/* Section E: Theme map + Section G: Community values */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <ThemeChart
               themes={aggregatedThemes}
@@ -244,7 +301,6 @@ export function DashboardPage() {
             <CommunityValues alignment={aggregatedAlignment} />
           </div>
 
-          {/* Section D: Community breakdown */}
           {dashboard.week_subreddits.length > 1 && (
             <div>
               <h3 className="text-xs font-semibold uppercase tracking-[0.15em] text-[var(--text-muted)] mb-3">
@@ -258,7 +314,6 @@ export function DashboardPage() {
             </div>
           )}
 
-          {/* Section H: Evidence table */}
           <EvidenceTable posts={aggregatedEvidence} />
         </>
       )}
