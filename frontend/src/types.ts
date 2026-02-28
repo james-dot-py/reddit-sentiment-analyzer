@@ -1,82 +1,14 @@
-export type ViewMode = 'combined' | string;
+// Types will be rewritten in Phase 4 to match the new brand intelligence data model.
+// Keeping minimal types needed by retained panels (NLPInsights, SentimentDistribution).
 
-export type SortMethod = "hot" | "new" | "rising" | "top";
-export type TimeFilter = "day" | "week" | "month" | "year" | "all";
 export type SentimentLabel = "positive" | "neutral" | "negative";
 
-export interface AnalysisRequest {
-  subreddits: string[];
-  post_limit: number;
-  sort: SortMethod;
-  time_filter: TimeFilter;
-  include_comments: boolean;
-  comment_depth: number;
+export interface SnapshotIndex {
+  weeks: string[];
+  by_subreddit: Record<string, string[]>;
 }
 
-export interface RedditPost {
-  id: string;
-  subreddit: string;
-  title: string;
-  selftext: string;
-  author: string;
-  score: number;
-  num_comments: number;
-  created_utc: number;
-  permalink: string;
-  url: string;
-}
-
-export interface RedditComment {
-  id: string;
-  post_id: string;
-  subreddit: string;
-  body: string;
-  author: string;
-  score: number;
-  created_utc: number;
-}
-
-export interface SentimentResult {
-  label: SentimentLabel;
-  confidence: number;
-  compound_score: number;
-  scores: Record<string, number>;
-}
-
-export interface PostWithSentiment {
-  post: RedditPost;
-  sentiment: SentimentResult;
-}
-
-export interface CommentWithSentiment {
-  comment: RedditComment;
-  sentiment: SentimentResult;
-}
-
-export interface SentimentStats {
-  mean: number;
-  median: number;
-  std_dev: number;
-  positive_pct: number;
-  neutral_pct: number;
-  negative_pct: number;
-  total_count: number;
-}
-
-export interface SubredditSentimentSummary {
-  subreddit: string;
-  post_stats: SentimentStats;
-  comment_stats: SentimentStats | null;
-  post_count: number;
-  comment_count: number;
-}
-
-export interface TimeSeriesPoint {
-  date: string;
-  avg_sentiment: number;
-  count: number;
-  subreddit: string;
-}
+// ── Kept for retained panels ──────────────────────────────────────────────
 
 export interface NamedEntity {
   text: string;
@@ -104,115 +36,20 @@ export interface NLPInsights {
   text_stats: TextStatistics;
 }
 
-export interface KeywordComparison {
-  keyword: string;
-  with_keyword: SentimentStats;
-  without_keyword: SentimentStats;
-}
-
-export interface WordCloudResponse {
-  image: string;
-  sentiment: string;
-  text_count: number;
-}
-
-export interface ContextSnippet {
-  text: string;
-  sentiment_score: number;
-  sentiment_label: string;
-  source_type: 'post' | 'comment';
-  post_title?: string;
-  permalink?: string;
-}
-
-export interface KeywordTimePoint {
-  date: string;
-  avg_sentiment: number;
-  mention_count: number;
-}
-
-export interface KeywordAnalysisResult {
-  keyword: string;
-  mention_count: number;
-  stats: SentimentStats;
-  baseline_stats: SentimentStats;
-  top_positive: PostWithSentiment[];
-  top_negative: PostWithSentiment[];
-  timeline: KeywordTimePoint[];
-  snippets: ContextSnippet[];
-  distribution: number[];
-}
-
-export interface KeywordAnalysisResponse {
-  analysis_id: string;
-  results: KeywordAnalysisResult[];
-}
-
-// ── Tribalism Classification ──────────────────────────────────────────────
-
-export type TribalClass = "Sacred" | "Blasphemous" | "Controversial" | "Neutral";
-
-export interface TribalTopic {
-  topic: string;
-  tribal_class: TribalClass;
-  mean_sentiment: number;
+export interface SentimentStats {
+  mean: number;
+  median: number;
   std_dev: number;
-  consensus_score: number;
-  mention_count: number;
-  sample_texts: string[];
+  positive_pct: number;
+  neutral_pct: number;
+  negative_pct: number;
+  total_count: number;
 }
 
-export interface TribalAnalysis {
-  topics: TribalTopic[];
-  ratioed_posts: PostWithSentiment[];
-  narrative: string;
-}
-
-export interface ConceptSearchResponse {
-  query: string;
-  terms: string[];
-  matching_post_count: number;
-  matching_comment_count: number;
-  stats: SentimentStats | null;
-  topic: TribalTopic | null;
-  snippets: ContextSnippet[];
-}
-
-// ── Full Analysis Response ────────────────────────────────────────────────
-
-export interface AnalysisResponse {
-  analysis_id: string;
-  subreddit_summaries: SubredditSentimentSummary[];
-  posts: PostWithSentiment[];
-  comments: CommentWithSentiment[];
-  time_series: TimeSeriesPoint[];
-  nlp_insights: NLPInsights;
-  summary_text: string;
-  sentiment_distribution: number[];
-  tribal_analysis?: TribalAnalysis;
-}
-
-export interface SampleInfo {
+export interface SubredditSentimentSummary {
   subreddit: string;
-  description: string;
+  post_stats: SentimentStats;
+  comment_stats: SentimentStats | null;
   post_count: number;
   comment_count: number;
-  fetched_at: string;
-  sort: string;
-  time_filter: string;
-  cached: boolean;
-  precomputed: boolean;
-}
-
-export interface SnapshotIndex {
-  weeks: string[];
-  by_subreddit: Record<string, string[]>;
-}
-
-export interface ProgressEvent {
-  stage: "started" | "fetching" | "analyzing" | "aggregating" | "nlp" | "tribal" | "summarizing" | "complete" | "error" | "results";
-  message?: string;
-  progress?: number;
-  analysis_id?: string;
-  data?: AnalysisResponse;
 }

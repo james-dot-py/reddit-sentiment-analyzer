@@ -1,0 +1,94 @@
+REDDIT SENTIMENT ANALYZER - Colab Precompute Instructions
+==========================================================
+
+This folder contains everything needed to run the tribal analysis
+pipeline in Google Colab with GPU acceleration.
+
+WHAT'S IN THIS FOLDER
+---------------------
+  run_in_colab.py          - The main script (Colab-ready, self-contained)
+  models.py                - Pydantic data models
+  nlp_analysis.py          - NLP pipeline (spaCy NER, n-grams, etc.)
+  sentiment.py             - RoBERTa sentiment analysis
+  summarizer.py            - Summary text generation
+  tribal_logic.py          - Tribal classification engine (THE NEW STUFF)
+  *.json (x12)             - Raw Reddit data for 12 tribal communities
+
+STEP-BY-STEP
+------------
+
+1. Open Google Colab: https://colab.research.google.com
+
+2. Create a new notebook
+
+3. In Cell 1 - Install dependencies:
+
+    !pip install transformers torch spacy pydantic scipy nltk google-generativeai
+    !python -m spacy download en_core_web_sm
+
+4. In Cell 2 - Upload files:
+
+    from google.colab import files
+    import os
+    os.makedirs('/content/pipeline', exist_ok=True)
+    os.chdir('/content/pipeline')
+    uploaded = files.upload()  # Select ALL files from this folder
+
+    OR drag-and-drop the entire folder into Colab's file browser
+    (left sidebar > Files > Upload), then:
+
+    os.chdir('/content/pipeline')  # or wherever you uploaded them
+
+5. In Cell 3 - Set Gemini API key & run:
+
+    import os
+    os.environ['GEMINI_API_KEY'] = 'AIzaSyBC4N_kzbQuOcuR3UskxqSUkc_u93umtgQ'
+    %run run_in_colab.py
+
+6. Wait for it to finish. With a GPU runtime, expect ~10-15 min total.
+   (To enable GPU: Runtime > Change runtime type > T4 GPU)
+
+7. Download the output files:
+
+    import glob
+    from google.colab import files
+    for f in glob.glob('/content/pipeline/output/*.analysis.json'):
+        files.download(f)
+
+8. Copy the 12 downloaded .analysis.json files into your local repo at:
+    backend/samples/
+
+9. Then commit and push:
+    git add backend/samples/*.analysis.json
+    git commit -m "Regenerate analysis files with tribal classification data"
+    git push
+
+WHAT THIS PRODUCES
+------------------
+12 .analysis.json files in the output/ subfolder, one per community:
+  android.analysis.json
+  antiwork.analysis.json
+  apple.analysis.json
+  atheism.analysis.json
+  bbq.analysis.json
+  childfree.analysis.json
+  christianity.analysis.json
+  conservative.analysis.json
+  overemployed.analysis.json
+  parenting.analysis.json
+  progressive.analysis.json
+  vegan.analysis.json
+
+Each file contains the full AnalysisResponse including:
+  - RoBERTa sentiment scores for all posts and comments
+  - NLP insights (entities, n-grams, keyword sentiment)
+  - Time series data
+  - tribal_analysis (NEW) - tribal topics, ratioed posts, narrative
+  - Summary text with tribal context
+
+HOW TO VERIFY IT WORKED
+-----------------------
+The script prints a spot check at the end. You should see:
+  conservative.analysis.json: tribal_analysis = POPULATED
+
+If you see "NULL/EMPTY", something went wrong with tribal_logic.py imports.
