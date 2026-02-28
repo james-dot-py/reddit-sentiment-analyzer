@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ChevronDown, RefreshCw, Calendar, BarChart3 } from 'lucide-react';
 import { useDashboard } from '../hooks/useDashboard';
@@ -9,8 +9,10 @@ import { SubredditCard } from '../components/dashboard/SubredditCard';
 import { ThemeChart } from '../components/dashboard/ThemeChart';
 import { CommunityValues } from '../components/dashboard/CommunityValues';
 import { EvidenceTable } from '../components/dashboard/EvidenceTable';
+import { CompetitiveContext } from '../components/dashboard/CompetitiveContext';
+import { ExportReport } from '../components/dashboard/ExportReport';
 import { DashboardSkeleton } from '../components/dashboard/Skeleton';
-import { fetchAvailableWeeks } from '../api';
+import { fetchAvailableWeeks, addAnnotation } from '../api';
 import type { ThemeEntry, EvidencePost, CommunityAlignment } from '../types';
 
 function formatWeek(dateStr: string): string {
@@ -38,6 +40,12 @@ export function DashboardPage() {
   const selectedProject = useMemo(
     () => projects.find(p => p.project_id === projectId),
     [projects, projectId],
+  );
+
+  // Competitors for the selected project (excluding the currently viewed brand)
+  const competitors = useMemo(
+    () => selectedProject?.brands.filter(b => b.is_competitor && b.brand_id !== brandId) ?? [],
+    [selectedProject, brandId],
   );
 
   // Auto-select first project and brand if none selected
@@ -129,6 +137,17 @@ export function DashboardPage() {
     return 'stable' as const;
   }, [dashboard]);
 
+  // Add annotation handler for the trend chart
+  const handleAddAnnotation = useCallback(async (date: string, label: string) => {
+    if (!projectId || !brandId) return;
+    try {
+      await addAnnotation(projectId, brandId, date, label);
+      refresh(); // Reload to show the new annotation
+    } catch (e) {
+      console.error('Failed to add annotation:', e);
+    }
+  }, [projectId, brandId, refresh]);
+
   // Helper to set params while preserving existing ones
   function updateParams(updates: Record<string, string | undefined>) {
     const next: Record<string, string> = {};
@@ -144,7 +163,7 @@ export function DashboardPage() {
 
   // ── Render ─────────────────────────────────────────────────────────────
 
-  // Welcome state — no projects loaded yet or none selected
+  // Welcome state
   if (!loading && projects.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-20 space-y-6">
@@ -230,6 +249,21 @@ export function DashboardPage() {
           </span>
         )}
 
+        {/* Export report */}
+        {!loading && dashboard && (
+          <ExportReport
+            brandName={dashboard.brand_name}
+            score={avgScore}
+            status={aggregatedStatus}
+            components={avgComponents}
+            narrative={primaryNarrative}
+            themes={aggregatedThemes}
+            evidence={aggregatedEvidence}
+            trends={trends}
+            snapshotDate={dashboard.snapshot_date}
+          />
+        )}
+
         {/* Refresh */}
         <button
           onClick={refresh}
@@ -273,6 +307,7 @@ export function DashboardPage() {
       {/* Dashboard content */}
       {!loading && dashboard && (
         <>
+          {/* Section A: Score header */}
           <ScoreDisplay
             score={avgScore}
             status={aggregatedStatus}
@@ -280,6 +315,7 @@ export function DashboardPage() {
             brandName={dashboard.brand_name}
           />
 
+          {/* Section B: Narrative + Section C: Trend chart */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <NarrativeSection
               narrative={primaryNarrative}
@@ -289,9 +325,11 @@ export function DashboardPage() {
               scoreHistory={trends?.score_history ?? []}
               annotations={trends?.annotations ?? []}
               trajectory={trends?.trajectory ?? null}
+              onAddAnnotation={projectId && brandId ? handleAddAnnotation : undefined}
             />
           </div>
 
+          {/* Section E: Theme map + Section G: Community values */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <ThemeChart
               themes={aggregatedThemes}
@@ -301,6 +339,20 @@ export function DashboardPage() {
             <CommunityValues alignment={aggregatedAlignment} />
           </div>
 
+          {/* Section F: Competitive context */}
+          {competitors.length > 0 && projectId && (
+            <CompetitiveContext
+              projectId={projectId}
+              primaryBrandId={brandId!}
+              primaryScore={avgScore}
+              primaryStatus={aggregatedStatus}
+              primaryComponents={avgComponents}
+              competitors={competitors}
+              week={week}
+            />
+          )}
+
+          {/* Section D: Community breakdown */}
           {dashboard.week_subreddits.length > 1 && (
             <div>
               <h3 className="text-xs font-semibold uppercase tracking-[0.15em] text-[var(--text-muted)] mb-3">
@@ -314,6 +366,7 @@ export function DashboardPage() {
             </div>
           )}
 
+          {/* Section H: Evidence table */}
           <EvidenceTable posts={aggregatedEvidence} />
         </>
       )}
