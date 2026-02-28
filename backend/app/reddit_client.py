@@ -1,7 +1,8 @@
-"""Reddit data fetching via OAuth API (oauth.reddit.com).
+"""Reddit data fetching — OAuth API or public JSON fallback.
 
-Requires REDDIT_CLIENT_ID and REDDIT_CLIENT_SECRET environment variables.
-Uses app-only (client_credentials) OAuth which works from cloud server IPs.
+If REDDIT_CLIENT_ID and REDDIT_CLIENT_SECRET are set, uses the OAuth API
+(oauth.reddit.com) for higher rate limits.  Otherwise, falls back to the
+public JSON endpoints (www.reddit.com/…/.json) which require no credentials.
 """
 
 from __future__ import annotations
@@ -20,11 +21,13 @@ logger = logging.getLogger(__name__)
 
 USER_AGENT = "SubRedditSentimentAnalyzer/1.0 (research tool)"
 OAUTH_BASE_URL = "https://oauth.reddit.com"
-RATE_LIMIT_DELAY = 0.7  # seconds between requests (OAuth: 60 req/min)
+PUBLIC_BASE_URL = "https://www.reddit.com"
+RATE_LIMIT_OAUTH = 0.7   # ~60 req/min with OAuth
+RATE_LIMIT_PUBLIC = 1.2   # ~30 req/min without auth (be conservative)
 
 
 class RedditClient:
-    """Fetches Reddit data via OAuth API."""
+    """Fetches Reddit data via OAuth API or public JSON endpoints."""
 
     def __init__(self):
         self._oauth_token: Optional[str] = None
@@ -35,10 +38,12 @@ class RedditClient:
         self._cache: dict[str, tuple[float, object]] = {}
         self._cache_ttl = 300  # 5 minutes
 
-        if not self._client_id or not self._client_secret:
-            logger.warning(
-                "REDDIT_CLIENT_ID / REDDIT_CLIENT_SECRET not set. "
-                "Reddit fetching will fail until credentials are configured."
+        if self.has_credentials:
+            logger.info("Reddit OAuth credentials found — using authenticated API")
+        else:
+            logger.info(
+                "No Reddit API credentials — using public JSON endpoints "
+                "(slower rate limit, no auth required)"
             )
 
     @property
@@ -46,12 +51,20 @@ class RedditClient:
         return bool(self._client_id and self._client_secret)
 
     @property
+    def _use_oauth(self) -> bool:
+        return self.has_credentials
+
+    @property
+    def _rate_limit_delay(self) -> float:
+        return RATE_LIMIT_OAUTH if self._use_oauth else RATE_LIMIT_PUBLIC
+
+    @property
     def _is_authenticated(self) -> bool:
         return self._oauth_token is not None and time.time() < self._oauth_expires
 
     def _headers(self) -> dict[str, str]:
         headers = {"User-Agent": USER_AGENT}
-        if self._is_authenticated:
+        if self._use_oauth and self._is_authenticated:
             headers["Authorization"] = f"Bearer {self._oauth_token}"
         return headers
 
@@ -94,7 +107,7 @@ class RedditClient:
         if cached is not None:
             return cached
 
-        if not self._is_authenticated:
+        if self._use_oauth and not self._is_authenticated:
             await self._authenticate()
 
         proxy_kwargs = {"proxy": self._proxy_url} if self._proxy_url else {}
@@ -104,6 +117,18 @@ class RedditClient:
             data = resp.json()
             self._set_cache(cache_key, data)
             return data
+
+    def _build_listing_url(self, subreddit: str, sort: SortMethod) -> str:
+        """Build the listing URL for either OAuth or public mode."""
+        if self._use_oauth:
+            return f"{OAUTH_BASE_URL}/r/{subreddit}/{sort.value}"
+        return f"{PUBLIC_BASE_URL}/r/{subreddit}/{sort.value}.json"
+
+    def _build_comments_url(self, subreddit: str, post_id: str) -> str:
+        """Build the comments URL for either OAuth or public mode."""
+        if self._use_oauth:
+            return f"{OAUTH_BASE_URL}/r/{subreddit}/comments/{post_id}"
+        return f"{PUBLIC_BASE_URL}/r/{subreddit}/comments/{post_id}.json"
 
     async def fetch_posts(
         self,
@@ -121,7 +146,7 @@ class RedditClient:
 
         while fetched < limit:
             this_batch = min(batch_size, limit - fetched)
-            url = f"{OAUTH_BASE_URL}/r/{subreddit}/{sort.value}"
+            url = self._build_listing_url(subreddit, sort)
 
             params: dict = {"limit": this_batch, "raw_json": 1}
             if sort == SortMethod.top:
@@ -170,7 +195,7 @@ class RedditClient:
             if not after or len(children) < this_batch:
                 break
 
-            await asyncio.sleep(RATE_LIMIT_DELAY)
+            await asyncio.sleep(self._rate_limit_delay)
 
         return posts[:limit]
 
@@ -181,7 +206,7 @@ class RedditClient:
         depth: int = 1,
     ) -> list[RedditComment]:
         """Fetch comments for a specific post."""
-        url = f"{OAUTH_BASE_URL}/r/{subreddit}/comments/{post_id}"
+        url = self._build_comments_url(subreddit, post_id)
         params = {"limit": 100, "depth": depth, "raw_json": 1}
 
         try:
@@ -257,7 +282,7 @@ class RedditClient:
                         i + 1, len(posts), subreddit, stage="comments"
                     )
 
-                await asyncio.sleep(RATE_LIMIT_DELAY)
+                await asyncio.sleep(self._rate_limit_delay)
 
         return posts, comments
 
