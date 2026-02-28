@@ -1,13 +1,14 @@
-import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Route, Routes, Navigate } from 'react-router-dom';
 import { Layout } from './components/Layout';
-import { AnalysisPage } from './pages/AnalysisPage';
+import { DashboardPage } from './pages/DashboardPage';
 
 function App() {
   return (
     <BrowserRouter>
       <Layout>
         <Routes>
-          <Route path="/" element={<AnalysisPage />} />
+          <Route path="/" element={<DashboardPage />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Layout>
     </BrowserRouter>
