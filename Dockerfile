@@ -44,11 +44,17 @@ RUN python -c "from transformers import AutoModelForSequenceClassification, Auto
 # Copy backend code
 COPY backend/ ./backend/
 
+# Copy project configuration
+COPY config/ ./config/
+
+# Copy pipeline scripts
+COPY scripts/ ./scripts/
+
 # Copy built frontend from stage 1
 COPY --from=frontend-build /app/frontend/dist ./frontend/dist
 
-# Create data directory for SQLite
-RUN mkdir -p /app/backend/data
+# Create data directories
+RUN mkdir -p /app/backend/data/snapshots /app/data/trends
 
 # Expose port
 EXPOSE 8080

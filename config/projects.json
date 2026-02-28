@@ -1,0 +1,96 @@
+{
+  "projects": [
+    {
+      "project_id": "demo-skincare",
+      "project_name": "Skincare Brand Tracking",
+      "brands": [
+        {
+          "brand_id": "cerave",
+          "brand_name": "CeraVe",
+          "aliases": ["cerave", "cera ve", "cerave.com"],
+          "is_competitor": false
+        },
+        {
+          "brand_id": "cetaphil",
+          "brand_name": "Cetaphil",
+          "aliases": ["cetaphil"],
+          "is_competitor": true
+        },
+        {
+          "brand_id": "the-ordinary",
+          "brand_name": "The Ordinary",
+          "aliases": ["the ordinary", "TO", "theordinary"],
+          "is_competitor": true
+        }
+      ],
+      "subreddits": [
+        {
+          "subreddit": "SkincareAddiction",
+          "relevance": "core",
+          "pull_config": {
+            "post_limit": 200,
+            "comment_depth": 3,
+            "sort": "top",
+            "time_filter": "week"
+          }
+        },
+        {
+          "subreddit": "30PlusSkinCare",
+          "relevance": "core",
+          "pull_config": {
+            "post_limit": 200,
+            "comment_depth": 3,
+            "sort": "top",
+            "time_filter": "week"
+          }
+        }
+      ]
+    },
+    {
+      "project_id": "demo-fastfood",
+      "project_name": "Fast Food Brand Tracking",
+      "brands": [
+        {
+          "brand_id": "mcdonalds",
+          "brand_name": "McDonald's",
+          "aliases": ["mcdonalds", "mcdonald's", "mickey d's", "mickey ds", "mcd"],
+          "is_competitor": false
+        },
+        {
+          "brand_id": "chick-fil-a",
+          "brand_name": "Chick-fil-A",
+          "aliases": ["chick-fil-a", "chick fil a", "chickfila", "cfa"],
+          "is_competitor": true
+        },
+        {
+          "brand_id": "wendys",
+          "brand_name": "Wendy's",
+          "aliases": ["wendys", "wendy's"],
+          "is_competitor": true
+        }
+      ],
+      "subreddits": [
+        {
+          "subreddit": "fastfood",
+          "relevance": "core",
+          "pull_config": {
+            "post_limit": 200,
+            "comment_depth": 3,
+            "sort": "top",
+            "time_filter": "week"
+          }
+        },
+        {
+          "subreddit": "ChickFilA",
+          "relevance": "core",
+          "pull_config": {
+            "post_limit": 200,
+            "comment_depth": 3,
+            "sort": "top",
+            "time_filter": "week"
+          }
+        }
+      ]
+    }
+  ]
+}

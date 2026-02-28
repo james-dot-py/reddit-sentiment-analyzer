@@ -38,14 +38,13 @@ from backend.app.models import (
     SentimentStats,
     SubredditSentimentSummary,
     TimeSeriesPoint,
-    TribalAnalysis,
+    SortMethod,
+    TimeFilter,
 )
 from backend.app.nlp_analysis import run_full_nlp_analysis
 from backend.app.reddit_client import RedditClient
 from backend.app.sentiment import analyze_batch, preload_model
-from backend.app.summarizer import generate_summary, generate_tribal_narrative
-from backend.app.tribal_logic import build_topic_groups, classify_tribalism, classify_ratioed_posts
-from backend.app.models import SortMethod, TimeFilter
+from backend.app.summarizer import generate_summary
 
 SUBREDDITS_JSON = PROJECT_ROOT / "scripts" / "subreddits.json"
 SNAPSHOTS_DIR = PROJECT_ROOT / "backend" / "data" / "snapshots"
@@ -96,7 +95,7 @@ def run_pipeline(
     comments: list[RedditComment],
     analysis_id: str,
 ) -> AnalysisResponse:
-    """Run the full sentiment + NLP + tribal + summary pipeline on fetched data."""
+    """Run the sentiment + NLP + summary pipeline on fetched data."""
     print(f"    Sentiment analysis ({len(posts)} posts)...")
     post_texts = [f"{p.title} {p.selftext}".strip() for p in posts]
     post_sentiments = analyze_batch(post_texts)
@@ -143,24 +142,10 @@ def run_pipeline(
     nlp_comment_texts = [c.comment.body for c in comments_with_sentiment] if comments_with_sentiment else None
     nlp_insights = run_full_nlp_analysis(nlp_post_texts, nlp_comment_texts)
 
-    # Tribal
-    print("    Tribal classification...")
-    topic_groups = build_topic_groups(
-        posts_with_sentiment, comments_with_sentiment,
-        nlp_insights.entities, nlp_insights.bigrams,
-    )
-    tribal_topics = classify_tribalism(topic_groups)
-    ratioed_posts = classify_ratioed_posts(posts_with_sentiment, comments_with_sentiment)
-    tribal_narrative = generate_tribal_narrative(tribal_topics, ratioed_posts)
-    tribal_analysis = TribalAnalysis(
-        topics=tribal_topics, ratioed_posts=ratioed_posts, narrative=tribal_narrative,
-    )
-
     # Summary
     print("    Generating summary...")
     summary_text = generate_summary(
         subreddit_summaries, posts_with_sentiment, comments_with_sentiment, nlp_insights,
-        tribal_topics=tribal_topics, ratioed_count=len(ratioed_posts),
     )
 
     sentiment_distribution = [p.sentiment.compound_score for p in posts_with_sentiment]
@@ -176,7 +161,7 @@ def run_pipeline(
         nlp_insights=nlp_insights,
         summary_text=summary_text,
         sentiment_distribution=sentiment_distribution,
-        tribal_analysis=tribal_analysis,
+        tribal_analysis=None,
     )
 
 
