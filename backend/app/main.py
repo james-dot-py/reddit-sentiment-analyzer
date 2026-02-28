@@ -323,6 +323,38 @@ async def get_community_profile(project_id: str, subreddit: str):
     raise HTTPException(status_code=404, detail="Community profile not found")
 
 
+# ── Subreddit Snapshot (community-level analysis) ─────────────────────────
+
+@app.get("/api/projects/{project_id}/subreddits/{subreddit}/snapshot")
+async def get_subreddit_snapshot(
+    project_id: str,
+    subreddit: str,
+    week: Optional[str] = Query(None, description="Snapshot date (YYYY-MM-DD)"),
+):
+    """Community-level analysis for a subreddit: word clouds, entities, n-grams, overall sentiment."""
+    _find_project(project_id)
+    date = week or _latest_week()
+    if not date:
+        raise HTTPException(status_code=404, detail="No snapshot data available")
+
+    community_dir = SNAPSHOTS_DIR / date / f"r_{subreddit}" / "community"
+    if not community_dir.exists():
+        raise HTTPException(
+            status_code=404,
+            detail=f"No snapshot data for r/{subreddit} on {date}",
+        )
+
+    return {
+        "subreddit": subreddit,
+        "snapshot_date": date,
+        "overall_sentiment": _load_json(community_dir / "overall_sentiment.json"),
+        "word_cloud_data": _load_json(community_dir / "word_cloud_data.json"),
+        "entities": _load_json(community_dir / "entities.json"),
+        "ngrams": _load_json(community_dir / "ngrams.json"),
+        "community_profile": _load_json(community_dir / "community_profile.json"),
+    }
+
+
 # ── Available Weeks & Pipeline Status ──────────────────────────────────────
 
 @app.get("/api/snapshots/available-weeks")

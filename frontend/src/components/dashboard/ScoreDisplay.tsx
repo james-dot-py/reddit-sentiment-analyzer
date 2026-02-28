@@ -1,3 +1,4 @@
+import { Clock } from 'lucide-react';
 import type { ScoreComponents, StatusTag } from '../../types';
 import { StatusBadge } from './StatusBadge';
 
@@ -6,6 +7,8 @@ interface Props {
   status: StatusTag;
   components: ScoreComponents;
   brandName: string;
+  snapshotDate?: string;
+  lastUpdated?: string | null;
 }
 
 const componentMeta: { key: keyof ScoreComponents; label: string; weight: string }[] = [
@@ -22,13 +25,45 @@ function scoreColor(score: number): string {
   return 'text-red-700';
 }
 
-export function ScoreDisplay({ score, status, components, brandName }: Props) {
+function formatFreshness(snapshotDate?: string, lastUpdated?: string | null) {
+  if (!snapshotDate) return null;
+  const snap = new Date(snapshotDate + 'T12:00:00Z');
+  const updated = snap.toLocaleDateString('en-US', {
+    month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC',
+  });
+
+  // Next Sunday = 7 days after the snapshot date
+  const nextRun = new Date(snap);
+  nextRun.setUTCDate(nextRun.getUTCDate() + 7);
+  const now = new Date();
+  const diffMs = nextRun.getTime() - now.getTime();
+  const diffDays = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+
+  const countdown =
+    diffDays === 0 ? 'Next update today'
+    : diffDays === 1 ? 'Next update tomorrow'
+    : `Next update in ${diffDays} days`;
+
+  return { updated, countdown };
+}
+
+export function ScoreDisplay({ score, status, components, brandName, snapshotDate, lastUpdated }: Props) {
+  const freshness = formatFreshness(snapshotDate, lastUpdated);
+
   return (
     <div className="paper-card p-6">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h2 className="heading text-2xl">{brandName}</h2>
           <p className="text-xs text-[var(--text-muted)] mt-1 uppercase tracking-wider">Undercurrent Score</p>
+          {freshness && (
+            <div className="flex items-center gap-1.5 mt-2 text-[10px] text-[var(--text-muted)]">
+              <Clock size={10} className="shrink-0" />
+              <span>Last updated: {freshness.updated}</span>
+              <span className="opacity-50">·</span>
+              <span>{freshness.countdown}</span>
+            </div>
+          )}
         </div>
         <div className="text-right">
           <div className={`data-text text-5xl font-medium ${scoreColor(score)}`}>{score}</div>

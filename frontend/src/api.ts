@@ -82,3 +82,13 @@ export function fetchCommunityProfile(
 export function fetchAvailableWeeks(): Promise<{ available_weeks: string[] }> {
   return fetchJSON('/api/snapshots/available-weeks');
 }
+
+export interface PipelineStatus {
+  last_updated: string | null;
+  last_pipeline_status: string;
+  available_weeks: string[];
+}
+
+export function fetchPipelineStatus(): Promise<PipelineStatus> {
+  return fetchJSON('/api/pipeline/status');
+}

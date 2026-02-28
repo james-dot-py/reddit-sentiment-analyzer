@@ -12,7 +12,7 @@ import { EvidenceTable } from '../components/dashboard/EvidenceTable';
 import { CompetitiveContext } from '../components/dashboard/CompetitiveContext';
 import { ExportReport } from '../components/dashboard/ExportReport';
 import { DashboardSkeleton } from '../components/dashboard/Skeleton';
-import { fetchAvailableWeeks, addAnnotation } from '../api';
+import { fetchAvailableWeeks, fetchPipelineStatus, addAnnotation } from '../api';
 import type { ThemeEntry, EvidencePost, CommunityAlignment } from '../types';
 
 function formatWeek(dateStr: string): string {
@@ -30,10 +30,12 @@ export function DashboardPage() {
 
   const { projects, dashboard, trends, loading, error, refresh } = useDashboard(projectId, brandId, week);
 
-  // Available weeks for week selector
+  // Available weeks for week selector + pipeline status for data freshness
   const [availableWeeks, setAvailableWeeks] = useState<string[]>([]);
+  const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   useEffect(() => {
     fetchAvailableWeeks().then(r => setAvailableWeeks(r.available_weeks)).catch(() => {});
+    fetchPipelineStatus().then(r => setLastUpdated(r.last_updated)).catch(() => {});
   }, []);
 
   // Derive selected project & brand objects
@@ -313,6 +315,8 @@ export function DashboardPage() {
             status={aggregatedStatus}
             components={avgComponents}
             brandName={dashboard.brand_name}
+            snapshotDate={dashboard.snapshot_date}
+            lastUpdated={lastUpdated}
           />
 
           {/* Section B: Narrative + Section C: Trend chart */}
