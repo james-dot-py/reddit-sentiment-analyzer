@@ -1,132 +1,197 @@
 import { useState, useMemo } from 'react';
-import { ExternalLink, Search, ArrowUpDown, ChevronDown, ChevronUp } from 'lucide-react';
+import { ExternalLink, MessageSquare, ArrowUp } from 'lucide-react';
 import type { EvidencePost } from '../../types';
+import { SectionVerdict } from './SectionVerdict';
 
 interface Props {
   posts: EvidencePost[];
+  sectionVerdict?: string;
 }
 
-type SortKey = 'upvotes' | 'comment_count';
+type SortKey = 'upvotes' | 'comment_count' | 'date';
+type SentimentFilter = 'all' | 'positive' | 'negative' | 'neutral';
 
-export function EvidenceTable({ posts }: Props) {
-  const [search, setSearch] = useState('');
+function sentimentBadge(label?: string) {
+  if (!label) return null;
+  const styles: Record<string, string> = {
+    positive: 'bg-[var(--color-strength)]/10 text-[var(--color-strength)] border-[var(--color-strength)]/20',
+    negative: 'bg-[var(--color-danger)]/10 text-[var(--color-danger)] border-[var(--color-danger)]/20',
+    neutral: 'bg-[var(--color-info)]/10 text-[var(--color-info)] border-[var(--color-info)]/20',
+  };
+  return (
+    <span className={`inline-flex items-center rounded-full border px-1.5 py-0 text-[10px] font-medium ${styles[label] || styles.neutral}`}>
+      {label}
+    </span>
+  );
+}
+
+function formatDate(dateStr?: string) {
+  if (!dateStr) return '';
+  try {
+    const d = new Date(dateStr + 'T12:00:00Z');
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+  } catch { return dateStr; }
+}
+
+export function EvidenceTable({ posts, sectionVerdict }: Props) {
   const [sortBy, setSortBy] = useState<SortKey>('upvotes');
-  const [sortAsc, setSortAsc] = useState(false);
-  const [expanded, setExpanded] = useState<number | null>(null);
+  const [sentimentFilter, setSentimentFilter] = useState<SentimentFilter>('all');
+  const [subredditFilter, setSubredditFilter] = useState<string>('all');
+
+  const subreddits = useMemo(() => {
+    const subs = new Set(posts.map(p => p.subreddit).filter(Boolean));
+    return Array.from(subs);
+  }, [posts]);
 
   const filtered = useMemo(() => {
     let result = [...posts];
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      result = result.filter(p =>
-        p.post_title.toLowerCase().includes(q) ||
-        p.why_notable.toLowerCase().includes(q),
-      );
+
+    if (sentimentFilter !== 'all') {
+      result = result.filter(p => p.sentiment_label === sentimentFilter);
     }
+    if (subredditFilter !== 'all') {
+      result = result.filter(p => p.subreddit === subredditFilter);
+    }
+
     result.sort((a, b) => {
-      const diff = a[sortBy] - b[sortBy];
-      return sortAsc ? diff : -diff;
+      if (sortBy === 'date') {
+        return (b.post_date || '').localeCompare(a.post_date || '');
+      }
+      return b[sortBy] - a[sortBy];
     });
+
     return result;
-  }, [posts, search, sortBy, sortAsc]);
+  }, [posts, sentimentFilter, subredditFilter, sortBy]);
 
   if (!posts.length) return null;
 
-  function toggleSort(key: SortKey) {
-    if (sortBy === key) setSortAsc(!sortAsc);
-    else { setSortBy(key); setSortAsc(false); }
-  }
+  const sentimentOptions: { value: SentimentFilter; label: string }[] = [
+    { value: 'all', label: 'All' },
+    { value: 'positive', label: 'Positive' },
+    { value: 'negative', label: 'Negative' },
+    { value: 'neutral', label: 'Neutral' },
+  ];
 
-  const SortIcon = ({ field }: { field: SortKey }) => {
-    if (sortBy !== field) return <ArrowUpDown size={10} className="text-[var(--text-muted)] opacity-40" />;
-    return sortAsc
-      ? <ChevronUp size={10} className="text-[var(--text-primary)]" />
-      : <ChevronDown size={10} className="text-[var(--text-primary)]" />;
-  };
+  const sortOptions: { value: SortKey; label: string }[] = [
+    { value: 'upvotes', label: 'Votes' },
+    { value: 'comment_count', label: 'Comments' },
+    { value: 'date', label: 'Date' },
+  ];
 
   return (
     <div className="paper-card p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-xs font-semibold uppercase tracking-[0.15em] text-[var(--text-muted)]">
-          Key Evidence
-        </h3>
-        <div className="flex items-center gap-2">
-          <div className="relative">
-            <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
-            <input
-              type="text"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Filter posts..."
-              className="rounded border border-[var(--border-default)] bg-[var(--surface-card)] pl-7 pr-3 py-1 text-xs text-[var(--text-secondary)] placeholder:text-[var(--text-muted)] w-44 focus:outline-none focus:border-[var(--text-muted)]"
-            />
-          </div>
-          <button
-            onClick={() => toggleSort('upvotes')}
-            className="inline-flex items-center gap-1 text-[10px] text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+      <h3 className="section-label mb-3">Key Evidence</h3>
+
+      <SectionVerdict verdict={sectionVerdict} />
+
+      {/* Filter bar */}
+      <div className="flex items-center gap-3 mb-4 flex-wrap">
+        {/* Sentiment toggle pills */}
+        <div className="flex rounded border border-[var(--border-default)] overflow-hidden">
+          {sentimentOptions.map(opt => (
+            <button
+              key={opt.value}
+              onClick={() => setSentimentFilter(opt.value)}
+              className={`px-2.5 py-1 text-[10px] font-medium transition-colors cursor-pointer ${
+                sentimentFilter === opt.value
+                  ? 'bg-[var(--surface-2)] text-[var(--text-primary)]'
+                  : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Subreddit dropdown */}
+        {subreddits.length > 1 && (
+          <select
+            value={subredditFilter}
+            onChange={e => setSubredditFilter(e.target.value)}
+            className="appearance-none rounded border border-[var(--border-default)] bg-[var(--surface-card)] px-2.5 py-1 text-[10px] text-[var(--text-secondary)] cursor-pointer"
           >
-            Votes <SortIcon field="upvotes" />
-          </button>
-          <button
-            onClick={() => toggleSort('comment_count')}
-            className="inline-flex items-center gap-1 text-[10px] text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-          >
-            Comments <SortIcon field="comment_count" />
-          </button>
+            <option value="all">All subreddits</option>
+            {subreddits.map(s => (
+              <option key={s} value={s}>r/{s}</option>
+            ))}
+          </select>
+        )}
+
+        <div className="flex-1" />
+
+        {/* Sort selector */}
+        <div className="flex items-center gap-1 text-[10px] text-[var(--text-muted)]">
+          <span>Sort:</span>
+          {sortOptions.map(opt => (
+            <button
+              key={opt.value}
+              onClick={() => setSortBy(opt.value)}
+              className={`px-1.5 py-0.5 rounded cursor-pointer transition-colors ${
+                sortBy === opt.value
+                  ? 'text-[var(--text-primary)] font-medium'
+                  : 'hover:text-[var(--text-secondary)]'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
         </div>
       </div>
 
-      {filtered.length === 0 && search.trim() && (
+      {filtered.length === 0 && (
         <p className="text-xs text-[var(--text-muted)] text-center py-4">
-          No posts match "{search}"
+          No evidence posts match the selected filters.
         </p>
       )}
 
-      <div className="space-y-2">
-        {filtered.map((post, i) => (
-          <div
-            key={i}
-            className="rounded bg-[var(--surface-1)] transition-colors hover:bg-[var(--surface-2)] cursor-pointer"
-            onClick={() => setExpanded(expanded === i ? null : i)}
-          >
-            <div className="flex items-start gap-3 p-3">
-              <div className="flex-shrink-0 text-center w-10">
-                <div className="data-text text-sm font-medium">{post.upvotes}</div>
-                <div className="text-[9px] text-[var(--text-muted)]">votes</div>
-              </div>
-              <div className="flex-1 min-w-0">
-                <a
-                  href={post.post_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm font-medium text-[var(--text-primary)] hover:underline inline-flex items-center gap-1"
-                  onClick={e => e.stopPropagation()}
-                >
-                  <span className={expanded === i ? '' : 'line-clamp-1'}>{post.post_title}</span>
-                  <ExternalLink size={11} className="flex-shrink-0 text-[var(--text-muted)]" />
-                </a>
-                {expanded !== i && (
-                  <p className="text-xs text-[var(--text-secondary)] mt-0.5 line-clamp-1">
-                    {post.why_notable}
-                  </p>
+      {/* Evidence cards */}
+      <div className="space-y-3">
+        {filtered.slice(0, 8).map((post, i) => {
+          const highImpact = post.upvotes >= 500;
+
+          return (
+            <div
+              key={i}
+              className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-1)] p-4 transition-colors hover:border-[var(--border-default)]"
+            >
+              {/* Metadata row */}
+              <div className="flex items-center gap-2 text-[10px] text-[var(--text-muted)] mb-2 flex-wrap">
+                <span className="inline-flex items-center gap-0.5 data-text font-medium">
+                  <ArrowUp size={10} /> {post.upvotes}
+                </span>
+                <span className="inline-flex items-center gap-0.5">
+                  <MessageSquare size={9} /> {post.comment_count}
+                </span>
+                {post.subreddit && <span>r/{post.subreddit}</span>}
+                {post.post_date && <span>{formatDate(post.post_date)}</span>}
+                {sentimentBadge(post.sentiment_label)}
+                {highImpact && (
+                  <span className="rounded-full bg-[var(--color-warning)]/10 text-[var(--color-warning)] border border-[var(--color-warning)]/20 px-1.5 py-0 text-[9px] font-medium">
+                    High Impact
+                  </span>
                 )}
               </div>
-              <div className="flex-shrink-0 text-right">
-                <div className="data-text text-[10px] text-[var(--text-muted)]">
-                  {post.comment_count} comments
-                </div>
-              </div>
-            </div>
 
-            {expanded === i && (
-              <div className="px-3 pb-3 pt-0 ml-13">
-                <p className="text-xs text-[var(--text-secondary)] leading-relaxed border-l-2 border-[var(--border-default)] pl-3">
+              {/* Title */}
+              <a
+                href={post.post_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`text-sm leading-snug text-[var(--text-primary)] hover:underline inline-flex items-start gap-1 ${highImpact ? 'font-semibold' : 'font-medium'}`}
+              >
+                {post.post_title}
+                <ExternalLink size={11} className="shrink-0 mt-0.5 text-[var(--text-muted)]" />
+              </a>
+
+              {/* AI Summary */}
+              {post.why_notable && (
+                <p className="text-xs text-[var(--text-secondary)] leading-relaxed mt-1.5">
                   {post.why_notable}
                 </p>
-              </div>
-            )}
-          </div>
-        ))}
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

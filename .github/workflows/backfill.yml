@@ -1,0 +1,155 @@
+name: Backfill Pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+      weeks:
+        description: "Comma-separated dates to backfill (e.g. 2026-03-08,2026-03-15,2026-03-22)"
+        required: true
+      project:
+        description: "Project to run (leave blank for all)"
+        required: false
+        default: ""
+
+jobs:
+  parse-weeks:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: Parse week list into matrix
+        id: set-matrix
+        run: |
+          # Convert "2026-03-08,2026-03-15,2026-03-22" into JSON array
+          WEEKS=$(echo '${{ github.event.inputs.weeks }}' | tr ',' '\n' | sed 's/^/"/;s/$/"/' | paste -sd',' | sed 's/^/[/;s/$/]/')
+          echo "matrix={\"date\":$WEEKS}" >> $GITHUB_OUTPUT
+          echo "Will backfill: $WEEKS"
+
+  backfill:
+    needs: parse-weeks
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      matrix: ${{ fromJson(needs.parse-weeks.outputs.matrix) }}
+      max-parallel: 4
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r backend/requirements-prod.txt
+
+      - name: Restore data from cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            data/snapshots
+            data/trends
+            data/manifest.json
+          restore-keys: |
+            pipeline-data-
+
+      - name: Run pipeline for ${{ matrix.date }}
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          ARGS="--date ${{ matrix.date }}"
+          if [ -n "${{ github.event.inputs.project }}" ]; then
+            ARGS="$ARGS --project ${{ github.event.inputs.project }}"
+          fi
+          python scripts/weekly_pipeline.py $ARGS
+
+      - name: Upload snapshot artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backfill-${{ matrix.date }}
+          path: |
+            data/snapshots/${{ matrix.date }}
+            data/trends
+            data/manifest.json
+          retention-days: 30
+
+  merge-results:
+    needs: backfill
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Download all backfill artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: backfill-*
+          path: backfill-artifacts/
+          merge-multiple: false
+
+      - name: Merge backfill data into repo
+        run: |
+          for artifact_dir in backfill-artifacts/backfill-*; do
+            if [ -d "$artifact_dir" ]; then
+              # Snapshot dirs live under data/snapshots/YYYY-MM-DD
+              if [ -d "$artifact_dir/snapshots" ]; then
+                cp -r "$artifact_dir/snapshots"/* data/snapshots/ 2>/dev/null || true
+              fi
+              # Trends
+              if [ -d "$artifact_dir/trends" ]; then
+                cp -r "$artifact_dir/trends"/* data/trends/ 2>/dev/null || true
+              fi
+              # Manifest (last one wins — merge job regenerates anyway)
+              if [ -f "$artifact_dir/manifest.json" ]; then
+                cp "$artifact_dir/manifest.json" data/manifest.json 2>/dev/null || true
+              fi
+            fi
+          done
+          echo "Merged artifacts:"
+          ls -la data/snapshots/
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r backend/requirements-prod.txt
+
+      - name: Regenerate manifest
+        run: |
+          python -c "
+          import json
+          from pathlib import Path
+          from datetime import datetime, timezone
+
+          data_dir = Path('data')
+          snapshots_dir = data_dir / 'snapshots'
+          manifest_path = data_dir / 'manifest.json'
+
+          manifest = json.loads(manifest_path.read_text()) if manifest_path.exists() else {}
+          manifest['generated_at'] = datetime.now(timezone.utc).isoformat()
+
+          weeks = sorted([d.name for d in snapshots_dir.iterdir() if d.is_dir()])
+          print(f'Manifest updated: {len(weeks)} weeks — {weeks[0]} to {weeks[-1]}')
+
+          manifest_path.write_text(json.dumps(manifest, indent=2))
+          "
+
+      - name: Commit merged data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/
+          git diff --cached --quiet || git commit -m "Backfill: add historical pipeline data
+
+          Automated backfill for missing weeks.
+
+          Co-Authored-By: github-actions[bot] <github-actions[bot]@users.noreply.github.com>"
+          git push

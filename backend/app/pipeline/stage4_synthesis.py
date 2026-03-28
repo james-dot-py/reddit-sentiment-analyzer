@@ -124,19 +124,53 @@ def synthesize_brand(
         f"Top evidence posts:\n{evidence_ctx}\n"
         f"Mention summaries:\n" + "\n".join(mention_summaries) + "\n\n"
         f"Generate:\n"
-        f"1. narrative_summary: 2-3 paragraph rich narrative about this brand's "
-        f"standing in this community. Be specific and insightful.\n"
-        f"2. trajectory: 0-100 score for the brand's trajectory direction "
+        f"1. narrative_headline: 1-2 sentences (max 40 words) capturing the "
+        f"single most important takeaway. Lead with the insight, not preamble.\n"
+        f"2. narrative_signals: 3-5 bullet points (10-20 words each) highlighting "
+        f"specific signals — sentiment shifts, volume spikes, emerging themes, "
+        f"anomalies. Reference actual numbers.\n"
+        f"3. narrative_deep_dive: 2 short paragraphs (3-4 sentences each, "
+        f"~50-75 words per paragraph). Connect the dots between the signals. "
+        f"Explain *why* things are shifting and flag anything that warrants "
+        f"attention.\n"
+        f"4. trajectory: 0-100 score for the brand's trajectory direction "
         f"(70-100 = improving, 50-69 = stable/slightly positive, "
         f"30-49 = stable/slightly negative, 0-29 = declining)\n"
-        f"3. community_alignment_score: 0-100 for how well the brand aligns "
+        f"5. community_alignment_score: 0-100 for how well the brand aligns "
         f"with this community's values "
         f"(80-100 = strong alignment, 60-79 = mostly aligned, "
         f"40-59 = mixed, 20-39 = poor, 0-19 = severe misalignment)\n"
-        f"4. status_tag: overall status assessment\n"
-        f"5. aligned_values: list of brand attributes that resonate\n"
-        f"6. friction_points: list of areas of conflict\n"
-        f"7. key_evidence_posts: 3-5 most notable posts with explanations"
+        f"6. status_tag: overall status assessment\n"
+        f"7. aligned_values: list of brand attributes that resonate\n"
+        f"8. friction_points: list of areas of conflict\n"
+        f"9. key_evidence_posts: 3-5 most notable posts. For 'why_notable', "
+        f"write max 15 words — e.g. 'Loyal user switching to competitor "
+        f"after 3 years'. No academic language. Include 'sentiment_label' "
+        f"(positive/negative/neutral) reflecting overall post sentiment.\n\n"
+        f"10. blunt_verdict: single sentence, MAXIMUM 15 words. Brutally honest, "
+        f"no hedging, no metaphors. Example: 'Loyal users are defecting and "
+        f"counterfeits are accelerating the exodus.'\n"
+        f"11. findings: exactly 3-4 ranked findings (not more). For each:\n"
+        f"  - severity: critical (immediate threat), elevated (emerging concern), "
+        f"or monitor (worth watching)\n"
+        f"  - category: product_issue, trust_issue, channel_risk, or trend_signal\n"
+        f"  - text: max 25 words, specific and actionable. Must be DISTINCT from "
+        f"the blunt_verdict — provide new information.\n"
+        f"  - mention_count: approximate number of mentions supporting this finding\n"
+        f"12. section_verdicts: one 'so what' sentence each (max 20 words), for:\n"
+        f"  - theme_map: what the theme distribution means\n"
+        f"  - competitive: positioning assessment\n"
+        f"  - evidence: what the evidence pattern reveals\n"
+        f"  - narrative: overall intelligence verdict\n"
+        f"13. friction_point_details: enhanced version of friction_points (max 6). "
+        f"Each: text (max 8 words), mention_count, trend (rising/stable/declining), "
+        f"category (product/trust/channel)\n"
+        f"14. aligned_value_details: same structure as friction_point_details (max 6)\n\n"
+        f"IMPORTANT: narrative_deep_dive must NOT repeat the blunt_verdict or findings. "
+        f"It should provide context, causation, and forward-looking assessment only. "
+        f"Max 100 words total for narrative_deep_dive.\n\n"
+        f"This content appears in a dashboard UI where space is limited. "
+        f"Conciseness is critical."
     )
 
     try:
@@ -168,6 +202,19 @@ def synthesize_brand(
     )
     composite_score = max(0, min(100, composite_score))
 
+    # ── Confidence assessment ───────────────────────────────────────────
+    mention_count = len(analyzed)
+    total_posts_scanned = len(classification.get("mentions", []))
+    if mention_count >= 30:
+        confidence_level = "high"
+        confidence_note = f"Based on {mention_count} relevant mentions — statistically robust."
+    elif mention_count >= 10:
+        confidence_level = "moderate"
+        confidence_note = f"Based on {mention_count} mentions — directionally reliable."
+    else:
+        confidence_level = "low"
+        confidence_note = f"Based on {mention_count} mentions — interpret directionally."
+
     synthesis = {
         "brand_id": brand_id,
         "snapshot_date": snapshot_date,
@@ -179,13 +226,35 @@ def synthesize_brand(
             "trajectory": trajectory,
             "community_alignment": community_alignment,
         },
+        "data_quality": {
+            "mention_count": mention_count,
+            "total_posts_scanned": total_posts_scanned,
+            "confidence_level": confidence_level,
+            "confidence_note": confidence_note,
+        },
         "status_tag": llm_result.get("status_tag", "stable"),
-        "narrative_summary": llm_result.get("narrative_summary", ""),
+        "narrative_headline": llm_result.get("narrative_headline", ""),
+        "narrative_signals": llm_result.get("narrative_signals", []),
+        "narrative_deep_dive": llm_result.get("narrative_deep_dive", ""),
+        "narrative_summary": (
+            llm_result.get("narrative_headline", "") + "\n\n"
+            + "\n".join(f"- {s}" for s in llm_result.get("narrative_signals", [])) + "\n\n"
+            + llm_result.get("narrative_deep_dive", "")
+        ),
         "community_alignment": {
             "aligned_values": llm_result.get("aligned_values", []),
             "friction_points": llm_result.get("friction_points", []),
         },
-        "key_evidence_posts": llm_result.get("key_evidence_posts", []),
+        "key_evidence_posts": [
+            {**p, "subreddit": subreddit}
+            for p in llm_result.get("key_evidence_posts", [])
+        ],
+        # v2 additions
+        "blunt_verdict": llm_result.get("blunt_verdict", ""),
+        "findings": llm_result.get("findings", []),
+        "section_verdicts": llm_result.get("section_verdicts", {}),
+        "friction_point_details": llm_result.get("friction_point_details", []),
+        "aligned_value_details": llm_result.get("aligned_value_details", []),
     }
 
     save_atomic(output_path, synthesis)
@@ -258,10 +327,18 @@ def _empty_synthesis(brand_id: str, date: str, subreddit: str) -> dict:
             "community_alignment": 50,
         },
         "status_tag": "stable",
+        "narrative_headline": "",
+        "narrative_signals": [],
+        "narrative_deep_dive": "",
         "narrative_summary": "",
         "community_alignment": {
             "aligned_values": [],
             "friction_points": [],
         },
         "key_evidence_posts": [],
+        "blunt_verdict": "",
+        "findings": [],
+        "section_verdicts": {},
+        "friction_point_details": [],
+        "aligned_value_details": [],
     }

@@ -26,7 +26,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from dotenv import load_dotenv
-load_dotenv(PROJECT_ROOT / ".env")
+load_dotenv(str(PROJECT_ROOT / ".env"), override=True)
 
 from backend.app.models import (
     AnalysisResponse,
@@ -186,7 +186,7 @@ async def fetch_subreddit(
     for post in posts[:50]:
         post_comments = await client.fetch_comments(name, post.id, depth=depth)
         comments.extend(post_comments)
-        await asyncio.sleep(0.7)  # rate limit
+        await asyncio.sleep(client._rate_limit_delay)
     print(f"    Fetched {len(comments)} comments total.")
     return posts, comments
 

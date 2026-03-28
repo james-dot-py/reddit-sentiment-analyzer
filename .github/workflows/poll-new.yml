@@ -1,0 +1,53 @@
+name: Twice-Daily Poll
+
+on:
+  schedule:
+    # ~10am and ~10pm UTC (offset from :00)
+    - cron: "13 10 * * *"
+    - cron: "13 22 * * *"
+  workflow_dispatch:
+    inputs:
+      project:
+        description: "Project to poll (leave blank for all)"
+        required: false
+        default: ""
+
+jobs:
+  poll-new:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r backend/requirements-prod.txt
+
+      - name: Run poll
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          ARGS=""
+          if [ -n "${{ github.event.inputs.project }}" ]; then
+            ARGS="$ARGS --project ${{ github.event.inputs.project }}"
+          fi
+          python scripts/poll_new.py $ARGS
+
+      - name: Commit poll data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/polls/
+          git diff --cached --quiet || git commit -m "Poll: $(date -u +%Y-%m-%d\ %H:%M) UTC
+
+          Twice-daily new post poll.
+
+          Co-Authored-By: github-actions[bot] <github-actions[bot]@users.noreply.github.com>"
+          git push

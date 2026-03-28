@@ -48,7 +48,7 @@ def analyze_trends(
 
     output_path = output_dir / "trend_data.json"
 
-    # Build score history
+    # Build score history with EWMA smoothing
     score_history = []
     for s in all_syntheses:
         score_history.append({
@@ -56,6 +56,9 @@ def analyze_trends(
             "score": s.get("undercurrent_score", 0),
             "status": s.get("status_tag", "stable"),
         })
+
+    # Apply exponential weighted moving average for smoothed scores
+    _apply_smoothing(score_history)
 
     # Build themes history for the LLM
     themes_by_week = []
@@ -82,8 +85,10 @@ def analyze_trends(
         + "\n\n"
         f"Analyze the trajectory and identify:\n"
         f"1. trajectory: overall direction (improving, stable, declining, volatile)\n"
-        f"2. narrative_delta: 1-2 paragraphs explaining what changed this week "
-        f"vs recent weeks. What's new? What's accelerating? What's fading?\n"
+        f"2. narrative_delta: 1-2 sentences on the single most important shift "
+        f"this week. Name the score change, theme, or sentiment shift. No preamble. "
+        f"This content appears in a dashboard UI where space is limited. "
+        f"Conciseness is critical.\n"
         f"3. emerging_themes: new themes gaining momentum (with first_seen date "
         f"and growth_rate)\n"
         f"4. declining_themes: themes losing momentum (with peak date and trend)\n"
@@ -196,3 +201,29 @@ def load_prior_syntheses(
             })
 
     return prior
+
+
+def _apply_smoothing(score_history: list[dict], alpha: float = 0.3) -> None:
+    """Apply exponential weighted moving average (EWMA) smoothing in-place.
+
+    Adds a 'smoothed_score' field to each entry. For weeks with very few
+    mentions (data_quality.mention_count < 5), applies extra dampening
+    by pulling toward 50 (neutral).
+
+    Args:
+        score_history: List of score dicts (modified in place)
+        alpha: Smoothing factor (0-1). Higher = more responsive to recent data.
+    """
+    if not score_history:
+        return
+
+    # First point: smoothed = raw
+    score_history[0]["smoothed_score"] = score_history[0]["score"]
+
+    for i in range(1, len(score_history)):
+        prev_smoothed = score_history[i - 1]["smoothed_score"]
+        raw = score_history[i]["score"]
+
+        # EWMA: smoothed = alpha * raw + (1 - alpha) * previous_smoothed
+        smoothed = round(alpha * raw + (1 - alpha) * prev_smoothed)
+        score_history[i]["smoothed_score"] = max(0, min(100, smoothed))

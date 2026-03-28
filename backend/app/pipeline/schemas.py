@@ -76,8 +76,9 @@ DEEP_ANALYSIS_SCHEMA = {
                     "theme": {"type": "string"},
                     "count": {"type": "integer"},
                     "avg_sentiment_score": {"type": "number"},
+                    "velocity": {"type": "number"},
                 },
-                "required": ["theme", "count", "avg_sentiment_score"],
+                "required": ["theme", "count", "avg_sentiment_score", "velocity"],
                 "additionalProperties": False,
             },
         },
@@ -91,7 +92,12 @@ DEEP_ANALYSIS_SCHEMA = {
 SYNTHESIS_LLM_SCHEMA = {
     "type": "object",
     "properties": {
-        "narrative_summary": {"type": "string"},
+        "narrative_headline": {"type": "string"},
+        "narrative_signals": {
+            "type": "array",
+            "items": {"type": "string"},
+        },
+        "narrative_deep_dive": {"type": "string"},
         "trajectory": {"type": "integer"},
         "community_alignment_score": {"type": "integer"},
         "status_tag": {
@@ -119,15 +125,95 @@ SYNTHESIS_LLM_SCHEMA = {
                     "upvotes": {"type": "integer"},
                     "comment_count": {"type": "integer"},
                     "why_notable": {"type": "string"},
+                    "sentiment_label": {
+                        "type": "string",
+                        "enum": ["positive", "negative", "neutral"],
+                    },
                 },
-                "required": ["post_url", "post_title", "upvotes", "comment_count", "why_notable"],
+                "required": ["post_url", "post_title", "upvotes", "comment_count", "why_notable", "sentiment_label"],
+                "additionalProperties": False,
+            },
+        },
+        # v2 additions
+        "blunt_verdict": {"type": "string"},
+        "findings": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "severity": {
+                        "type": "string",
+                        "enum": ["critical", "elevated", "monitor"],
+                    },
+                    "category": {
+                        "type": "string",
+                        "enum": ["product_issue", "trust_issue", "channel_risk", "trend_signal"],
+                    },
+                    "text": {"type": "string"},
+                    "mention_count": {"type": "integer"},
+                },
+                "required": ["severity", "category", "text", "mention_count"],
+                "additionalProperties": False,
+            },
+        },
+        "section_verdicts": {
+            "type": "object",
+            "properties": {
+                "theme_map": {"type": "string"},
+                "competitive": {"type": "string"},
+                "evidence": {"type": "string"},
+                "narrative": {"type": "string"},
+            },
+            "required": ["theme_map", "competitive", "evidence", "narrative"],
+            "additionalProperties": False,
+        },
+        "friction_point_details": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "text": {"type": "string"},
+                    "mention_count": {"type": "integer"},
+                    "trend": {
+                        "type": "string",
+                        "enum": ["rising", "stable", "declining"],
+                    },
+                    "category": {
+                        "type": "string",
+                        "enum": ["product", "trust", "channel"],
+                    },
+                },
+                "required": ["text", "mention_count", "trend", "category"],
+                "additionalProperties": False,
+            },
+        },
+        "aligned_value_details": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "text": {"type": "string"},
+                    "mention_count": {"type": "integer"},
+                    "trend": {
+                        "type": "string",
+                        "enum": ["rising", "stable", "declining"],
+                    },
+                    "category": {
+                        "type": "string",
+                        "enum": ["product", "trust", "channel"],
+                    },
+                },
+                "required": ["text", "mention_count", "trend", "category"],
                 "additionalProperties": False,
             },
         },
     },
     "required": [
-        "narrative_summary", "trajectory", "community_alignment_score",
+        "narrative_headline", "narrative_signals", "narrative_deep_dive",
+        "trajectory", "community_alignment_score",
         "status_tag", "aligned_values", "friction_points", "key_evidence_posts",
+        "blunt_verdict", "findings", "section_verdicts",
+        "friction_point_details", "aligned_value_details",
     ],
     "additionalProperties": False,
 }

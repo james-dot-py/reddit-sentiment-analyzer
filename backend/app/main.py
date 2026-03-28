@@ -9,12 +9,26 @@ import uuid
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
+from .auth import get_current_user, optional_user
+from .database import (
+    add_brand,
+    add_subreddit,
+    create_project,
+    delete_project,
+    init_db,
+    list_user_projects,
+    remove_brand,
+    remove_subreddit,
+    seed_demo_projects,
+    update_project,
+)
 from .sentiment import preload_model
+from .tiers import get_tier_limits
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -85,10 +99,149 @@ def _latest_week() -> str | None:
     return None
 
 
+def _build_evidence_posts(
+    llm_evidence: list[dict],
+    classification: dict | None,
+    raw_data: dict | None,
+    subreddit: str,
+) -> list[dict]:
+    """Build evidence posts from real data instead of trusting LLM output.
+
+    The LLM often hallucinates URLs and engagement metrics for evidence posts.
+    This function cross-references classification mentions with raw Reddit data
+    to produce accurate evidence posts with real URLs, upvotes, and comment counts.
+    """
+    if not raw_data or not classification:
+        return llm_evidence  # Fallback to LLM data if we have nothing better
+
+    # Build a lookup of raw posts by ID
+    raw_posts: dict[str, dict] = {}
+    for post in raw_data.get("posts", []):
+        post_id = post.get("id", "")
+        if post_id:
+            raw_posts[post_id] = post
+
+    # Get the LLM's "why_notable" explanations keyed by a fuzzy title match
+    llm_explanations: dict[str, str] = {}
+    for ev in llm_evidence:
+        title_lower = ev.get("post_title", "").lower().strip()
+        if title_lower:
+            llm_explanations[title_lower] = ev.get("why_notable", "")
+
+    # Find posts mentioned in classification that reference this brand
+    mentioned_post_ids: set[str] = set()
+    mention_upvotes: dict[str, int] = {}  # post_id -> max upvotes from mentions
+    for mention in classification.get("mentions", []):
+        source_id = mention.get("source_id", "")
+        source_url = mention.get("source_url", "")
+        parent_url = mention.get("parent_post_url", "")
+
+        # Extract post ID from various formats
+        post_id = None
+        if source_id.startswith("post:"):
+            post_id = source_id.replace("post:", "")
+        elif source_id.startswith("comment:"):
+            # For comments, look up the parent post URL
+            if parent_url:
+                for raw_id, raw_post in raw_posts.items():
+                    if raw_id in parent_url or raw_post.get("permalink", "") in parent_url:
+                        post_id = raw_id
+                        break
+
+        if not post_id:
+            # Try to extract from source_url
+            for raw_id in raw_posts:
+                if raw_id in source_url or raw_id in (parent_url or ""):
+                    post_id = raw_id
+                    break
+
+        if post_id and post_id in raw_posts:
+            mentioned_post_ids.add(post_id)
+            upv = mention.get("upvotes", 0)
+            if mention.get("parent_post_upvotes"):
+                upv = max(upv, mention["parent_post_upvotes"])
+            mention_upvotes[post_id] = max(
+                mention_upvotes.get(post_id, 0), upv,
+            )
+
+    # Build evidence posts from real data
+    evidence_posts: list[dict] = []
+
+    # Prioritize posts that were actually mentioned in classification
+    for post_id in mentioned_post_ids:
+        raw_post = raw_posts.get(post_id)
+        if not raw_post:
+            continue
+
+        title = raw_post.get("title", "")
+        permalink = raw_post.get("permalink", "")
+        url = f"https://www.reddit.com{permalink}" if permalink else raw_post.get("url", "")
+
+        # Try to find a matching LLM explanation
+        why_notable = ""
+        title_lower = title.lower().strip()
+        for llm_title, explanation in llm_explanations.items():
+            # Fuzzy match: check if significant words overlap
+            if (llm_title in title_lower or title_lower in llm_title
+                    or _title_similarity(llm_title, title_lower) > 0.4):
+                why_notable = explanation
+                break
+
+        if not why_notable:
+            why_notable = f"Brand mentioned in r/{subreddit} discussion"
+
+        evidence_posts.append({
+            "post_url": url,
+            "post_title": title,
+            "upvotes": raw_post.get("score", 0),
+            "comment_count": raw_post.get("num_comments", 0),
+            "why_notable": why_notable,
+            "subreddit": subreddit,
+        })
+
+    # Sort by upvotes (engagement), take top 5
+    evidence_posts.sort(key=lambda p: p["upvotes"], reverse=True)
+
+    # If we got fewer than 3, supplement with top raw posts that mention the brand
+    if len(evidence_posts) < 3:
+        existing_urls = {p["post_url"] for p in evidence_posts}
+        for post in sorted(
+            raw_data.get("posts", []),
+            key=lambda p: p.get("score", 0),
+            reverse=True,
+        ):
+            permalink = post.get("permalink", "")
+            url = f"https://www.reddit.com{permalink}" if permalink else ""
+            if url in existing_urls:
+                continue
+            # Only add if we have some reason to believe it's brand-related
+            post_id = post.get("id", "")
+            if post_id in mentioned_post_ids:
+                continue  # Already handled
+            # Skip — only include posts confirmed in classification
+            break
+
+    return evidence_posts[:5]
+
+
+def _title_similarity(a: str, b: str) -> float:
+    """Simple word overlap similarity between two titles."""
+    words_a = set(a.split())
+    words_b = set(b.split())
+    if not words_a or not words_b:
+        return 0.0
+    intersection = words_a & words_b
+    return len(intersection) / min(len(words_a), len(words_b))
+
+
 # ── Startup ────────────────────────────────────────────────────────────────
 
 @app.on_event("startup")
 async def startup():
+    # Initialize database and seed demo data
+    await init_db()
+    await seed_demo_projects()
+
     logger.info("Starting up — preloading sentiment model in background...")
 
     def _safe_preload():
@@ -159,9 +312,23 @@ async def get_brand_dashboard(
             continue
 
         deep_analysis = _load_json(brand_dir / "deep_analysis.json")
+        classification = _load_json(brand_dir / "classification.json")
         community_profile = _load_json(
             sub_dir / "community" / "community_profile.json"
         )
+
+        # Build evidence posts from classification + raw_data (don't trust LLM)
+        raw_data = _load_json(sub_dir / "raw_data.json")
+        evidence = _build_evidence_posts(
+            synthesis.get("key_evidence_posts", []),
+            classification,
+            raw_data,
+            sub,
+        )
+        # Add date metadata to evidence
+        for ev in evidence:
+            ev["post_date"] = date
+        synthesis["key_evidence_posts"] = evidence
 
         # Build deep analysis summary
         deep_summary = None
@@ -393,6 +560,231 @@ async def latest_snapshot():
     """Return the most recent snapshot date."""
     date = _latest_week()
     return {"date": date}
+
+
+@app.get("/api/manifest")
+async def get_manifest():
+    """Return the full manifest for brand selection page."""
+    data = _load_json(MANIFEST_PATH)
+    if not data:
+        return {"projects": {}}
+    return data
+
+
+# ── Authenticated endpoints (/api/me/*) ───────────────────────────────────
+
+@app.get("/api/me")
+async def get_me(user: dict = Depends(get_current_user)):
+    """Return the current authenticated user, their projects, and tier limits."""
+    projects = await list_user_projects(user["id"])
+    tier = user.get("tier", "free")
+    return {
+        "user": {
+            "id": user["id"],
+            "email": user["email"],
+            "display_name": user["display_name"],
+            "tier": tier,
+        },
+        "tier_limits": get_tier_limits(tier),
+        "projects": [_format_project(p) for p in projects],
+    }
+
+
+@app.get("/api/me/projects")
+async def list_my_projects(user: dict = Depends(get_current_user)):
+    """List the current user's projects (plus demo projects)."""
+    projects = await list_user_projects(user["id"])
+    return [_format_project(p) for p in projects]
+
+
+@app.post("/api/me/projects")
+async def create_my_project(request: Request, user: dict = Depends(get_current_user)):
+    """Create a new project with brands and subreddits."""
+    body = await request.json()
+
+    project_name = body.get("project_name", "").strip()
+    if not project_name:
+        raise HTTPException(status_code=400, detail="project_name is required")
+
+    category = body.get("category", "other")
+    brands = body.get("brands", [])
+    subreddits = body.get("subreddits", [])
+
+    if not brands:
+        raise HTTPException(status_code=400, detail="At least one brand is required")
+    if not subreddits:
+        raise HTTPException(status_code=400, detail="At least one subreddit is required")
+
+    # Tier limits (free: 1 brand, 2 subs)
+    tier = user.get("tier", "free")
+    if tier == "free":
+        if len([b for b in brands if not b.get("is_competitor")]) > 1:
+            raise HTTPException(status_code=403, detail="Free tier allows 1 primary brand. Upgrade to Pro for more.")
+        if len(subreddits) > 2:
+            raise HTTPException(status_code=403, detail="Free tier allows 2 subreddits. Upgrade to Pro for more.")
+
+    project = await create_project(
+        user_id=user["id"],
+        project_name=project_name,
+        category=category,
+        brands=brands,
+        subreddits=subreddits,
+    )
+
+    return _format_project(project)
+
+
+@app.put("/api/me/projects/{project_id}")
+async def update_my_project(
+    project_id: int, request: Request, user: dict = Depends(get_current_user),
+):
+    """Update a project's configuration."""
+    body = await request.json()
+    result = await update_project(project_id, user["id"], **body)
+    if not result:
+        raise HTTPException(status_code=404, detail="Project not found or not authorized")
+    return _format_project(result)
+
+
+@app.delete("/api/me/projects/{project_id}")
+async def delete_my_project(project_id: int, user: dict = Depends(get_current_user)):
+    """Delete a project."""
+    deleted = await delete_project(project_id, user["id"])
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Project not found or not authorized")
+    return {"status": "deleted"}
+
+
+@app.post("/api/me/projects/{project_id}/brands")
+async def add_my_brand(
+    project_id: int, request: Request, user: dict = Depends(get_current_user),
+):
+    """Add a brand to a project."""
+    body = await request.json()
+    brand_name = body.get("brand_name", "").strip()
+    if not brand_name:
+        raise HTTPException(status_code=400, detail="brand_name is required")
+
+    brand = await add_brand(
+        project_id=project_id,
+        user_id=user["id"],
+        brand_name=brand_name,
+        aliases=body.get("aliases", []),
+        is_competitor=body.get("is_competitor", False),
+    )
+    if not brand:
+        raise HTTPException(status_code=404, detail="Project not found or not authorized")
+    return brand
+
+
+@app.delete("/api/me/projects/{project_id}/brands/{brand_id}")
+async def remove_my_brand(
+    project_id: int, brand_id: int, user: dict = Depends(get_current_user),
+):
+    """Remove a brand from a project."""
+    deleted = await remove_brand(brand_id, project_id, user["id"])
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Brand not found or not authorized")
+    return {"status": "deleted"}
+
+
+@app.post("/api/me/projects/{project_id}/subreddits")
+async def add_my_subreddit(
+    project_id: int, request: Request, user: dict = Depends(get_current_user),
+):
+    """Add a monitored subreddit to a project."""
+    body = await request.json()
+    subreddit_name = body.get("subreddit_name", "").strip()
+    if not subreddit_name:
+        raise HTTPException(status_code=400, detail="subreddit_name is required")
+
+    sub = await add_subreddit(project_id, user["id"], subreddit_name)
+    if not sub:
+        raise HTTPException(status_code=404, detail="Project not found or not authorized")
+    return sub
+
+
+@app.delete("/api/me/projects/{project_id}/subreddits/{sub_id}")
+async def remove_my_subreddit(
+    project_id: int, sub_id: int, user: dict = Depends(get_current_user),
+):
+    """Remove a monitored subreddit from a project."""
+    deleted = await remove_subreddit(sub_id, project_id, user["id"])
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Subreddit not found or not authorized")
+    return {"status": "deleted"}
+
+
+def _format_project(project: dict) -> dict:
+    """Format a DB project dict into the API response shape."""
+    import json as _json
+
+    brands = []
+    for b in project.get("brands", []):
+        aliases = b.get("aliases_json", "[]")
+        if isinstance(aliases, str):
+            aliases = _json.loads(aliases)
+        brands.append({
+            "id": b["id"],
+            "brand_id": b["brand_slug"],
+            "brand_name": b["brand_name"],
+            "aliases": aliases,
+            "is_competitor": bool(b.get("is_competitor", False)),
+        })
+
+    subs = []
+    for s in project.get("monitored_subs", []):
+        pull_config = s.get("pull_config_json", "{}")
+        if isinstance(pull_config, str):
+            pull_config = _json.loads(pull_config)
+        subs.append({
+            "id": s["id"],
+            "subreddit": s["subreddit_name"],
+            "relevance": s.get("relevance", "core"),
+            "pull_config": pull_config,
+        })
+
+    return {
+        "id": project["id"],
+        "project_id": project["project_slug"],
+        "project_name": project["project_name"],
+        "category": project.get("category", "other"),
+        "is_demo": bool(project.get("is_demo", False)),
+        "created_at": project.get("created_at", ""),
+        "brands": brands,
+        "subreddits": subs,
+    }
+
+
+# ── Billing (/api/billing/*) ───────────────────────────────────────────────
+
+@app.post("/api/billing/checkout")
+async def billing_checkout(request: Request, user: dict = Depends(get_current_user)):
+    """Create a Stripe Checkout session for Pro upgrade."""
+    from .billing import create_checkout_session
+
+    body = await request.json()
+    url = await create_checkout_session(
+        user_id=user["id"],
+        user_email=user["email"],
+        price_id=body.get("price_id"),
+        success_url=body.get("success_url", ""),
+        cancel_url=body.get("cancel_url", ""),
+    )
+    if not url:
+        raise HTTPException(status_code=503, detail="Billing is not configured")
+    return {"checkout_url": url}
+
+
+@app.post("/api/billing/webhook")
+async def billing_webhook(request: Request):
+    """Handle Stripe webhook events. No auth — verified by Stripe signature."""
+    from .billing import handle_webhook_event
+
+    payload = await request.body()
+    sig = request.headers.get("stripe-signature", "")
+    result = await handle_webhook_event(payload, sig)
+    return result
 
 
 # ── Static file serving (production) ──────────────────────────────────────

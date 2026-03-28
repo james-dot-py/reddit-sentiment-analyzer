@@ -40,10 +40,12 @@ class RedditPost(BaseModel):
     selftext: str = ""
     author: str = "[deleted]"
     score: int = 0
+    upvote_ratio: float = 0.0
     num_comments: int = 0
     created_utc: float = 0
     permalink: str = ""
     url: str = ""
+    source: str = "listing"  # "listing", "search_relevance", "search_new", "poll_new"
 
 
 class RedditComment(BaseModel):

@@ -1,0 +1,97 @@
+name: Weekly Pipeline
+
+on:
+  schedule:
+    # Every Sunday at 6:07 AM UTC (offset from :00 to reduce load)
+    - cron: "7 6 * * 0"
+  workflow_dispatch:
+    inputs:
+      project:
+        description: "Project to run (leave blank for all)"
+        required: false
+        default: ""
+      date:
+        description: "Override date (YYYY-MM-DD, leave blank for today)"
+        required: false
+        default: ""
+
+jobs:
+  run-pipeline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          pip install -r backend/requirements-prod.txt
+
+      - name: Download existing data
+        uses: actions/download-artifact@v4
+        with:
+          name: pipeline-data
+          path: data/
+        continue-on-error: true  # First run won't have existing data
+
+      - name: Restore data from cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            data/snapshots
+            data/trends
+            data/manifest.json
+          key: pipeline-data-${{ github.run_id }}
+          restore-keys: |
+            pipeline-data-
+
+      - name: Run weekly pipeline
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          ARGS=""
+          if [ -n "${{ github.event.inputs.project }}" ]; then
+            ARGS="$ARGS --project ${{ github.event.inputs.project }}"
+          fi
+          if [ -n "${{ github.event.inputs.date }}" ]; then
+            ARGS="$ARGS --date ${{ github.event.inputs.date }}"
+          fi
+          python scripts/weekly_pipeline.py $ARGS
+
+      - name: Save data cache
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            data/snapshots
+            data/trends
+            data/manifest.json
+          key: pipeline-data-${{ github.run_id }}
+
+      - name: Upload data artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pipeline-data
+          path: |
+            data/snapshots
+            data/trends
+            data/manifest.json
+          retention-days: 90
+
+      - name: Commit data to repo
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/snapshots data/trends data/manifest.json
+          git diff --cached --quiet || git commit -m "Pipeline run: $(date +%Y-%m-%d)
+
+          Automated weekly pipeline data update.
+
+          Co-Authored-By: github-actions[bot] <github-actions[bot]@users.noreply.github.com>"
+          git push

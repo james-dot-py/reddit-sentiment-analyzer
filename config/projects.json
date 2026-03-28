@@ -19,7 +19,7 @@
         {
           "brand_id": "the-ordinary",
           "brand_name": "The Ordinary",
-          "aliases": ["the ordinary", "TO", "theordinary"],
+          "aliases": ["the ordinary", "theordinary"],
           "is_competitor": true
         }
       ],
@@ -27,22 +27,52 @@
         {
           "subreddit": "SkincareAddiction",
           "relevance": "core",
-          "pull_config": {
-            "post_limit": 200,
-            "comment_depth": 3,
-            "sort": "top",
-            "time_filter": "week"
-          }
+          "pull_config": { "post_limit": 200, "comment_depth": 5, "sort": "top", "time_filter": "week" }
         },
         {
           "subreddit": "30PlusSkinCare",
           "relevance": "core",
-          "pull_config": {
-            "post_limit": 200,
-            "comment_depth": 3,
-            "sort": "top",
-            "time_filter": "week"
-          }
+          "pull_config": { "post_limit": 200, "comment_depth": 5, "sort": "top", "time_filter": "week" }
+        },
+        {
+          "subreddit": "AsianBeauty",
+          "relevance": "core",
+          "pull_config": { "post_limit": 200, "comment_depth": 5, "sort": "top", "time_filter": "week" }
+        },
+        {
+          "subreddit": "beauty",
+          "relevance": "secondary",
+          "pull_config": { "post_limit": 150, "comment_depth": 4, "sort": "top", "time_filter": "week" }
+        },
+        {
+          "subreddit": "MakeupAddiction",
+          "relevance": "secondary",
+          "pull_config": { "post_limit": 150, "comment_depth": 4, "sort": "top", "time_filter": "week" }
+        },
+        {
+          "subreddit": "acne",
+          "relevance": "core",
+          "pull_config": { "post_limit": 200, "comment_depth": 5, "sort": "top", "time_filter": "week" }
+        },
+        {
+          "subreddit": "Tretinoin",
+          "relevance": "secondary",
+          "pull_config": { "post_limit": 150, "comment_depth": 4, "sort": "top", "time_filter": "week" }
+        },
+        {
+          "subreddit": "SkincareFlatlays",
+          "relevance": "secondary",
+          "pull_config": { "post_limit": 100, "comment_depth": 3, "sort": "top", "time_filter": "week" }
+        },
+        {
+          "subreddit": "Rosacea",
+          "relevance": "secondary",
+          "pull_config": { "post_limit": 150, "comment_depth": 4, "sort": "top", "time_filter": "week" }
+        },
+        {
+          "subreddit": "eczema",
+          "relevance": "secondary",
+          "pull_config": { "post_limit": 150, "comment_depth": 4, "sort": "top", "time_filter": "week" }
         }
       ]
     },
@@ -59,7 +89,7 @@
         {
           "brand_id": "chick-fil-a",
           "brand_name": "Chick-fil-A",
-          "aliases": ["chick-fil-a", "chick fil a", "chickfila", "cfa"],
+          "aliases": ["chick-fil-a", "chick fil a", "chickfila"],
           "is_competitor": true
         },
         {
@@ -73,22 +103,42 @@
         {
           "subreddit": "fastfood",
           "relevance": "core",
-          "pull_config": {
-            "post_limit": 200,
-            "comment_depth": 3,
-            "sort": "top",
-            "time_filter": "week"
-          }
+          "pull_config": { "post_limit": 200, "comment_depth": 5, "sort": "top", "time_filter": "week" }
         },
         {
           "subreddit": "ChickFilA",
           "relevance": "core",
-          "pull_config": {
-            "post_limit": 200,
-            "comment_depth": 3,
-            "sort": "top",
-            "time_filter": "week"
-          }
+          "pull_config": { "post_limit": 200, "comment_depth": 5, "sort": "top", "time_filter": "week" }
+        },
+        {
+          "subreddit": "McDonalds",
+          "relevance": "core",
+          "pull_config": { "post_limit": 200, "comment_depth": 5, "sort": "top", "time_filter": "week" }
+        },
+        {
+          "subreddit": "wendys",
+          "relevance": "core",
+          "pull_config": { "post_limit": 200, "comment_depth": 5, "sort": "top", "time_filter": "week" }
+        },
+        {
+          "subreddit": "foodhacks",
+          "relevance": "secondary",
+          "pull_config": { "post_limit": 150, "comment_depth": 4, "sort": "top", "time_filter": "week" }
+        },
+        {
+          "subreddit": "FoodReviews",
+          "relevance": "secondary",
+          "pull_config": { "post_limit": 150, "comment_depth": 4, "sort": "top", "time_filter": "week" }
+        },
+        {
+          "subreddit": "burgers",
+          "relevance": "secondary",
+          "pull_config": { "post_limit": 150, "comment_depth": 4, "sort": "top", "time_filter": "week" }
+        },
+        {
+          "subreddit": "FrugalFood",
+          "relevance": "secondary",
+          "pull_config": { "post_limit": 100, "comment_depth": 3, "sort": "top", "time_filter": "week" }
         }
       ]
     }

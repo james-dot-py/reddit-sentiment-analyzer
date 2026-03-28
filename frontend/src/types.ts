@@ -1,5 +1,35 @@
 // ── v2 Brand Intelligence Types ──────────────────────────────────────────
 
+// ── View mode ──────────────────────────────────────────────────────────
+export type ViewMode = 'briefing' | 'deep-dive';
+
+// ── Findings with severity (Narrative Intelligence) ────────────────────
+export type FindingSeverity = 'critical' | 'elevated' | 'monitor';
+export type FindingCategory = 'product_issue' | 'trust_issue' | 'channel_risk' | 'trend_signal';
+
+export interface Finding {
+  severity: FindingSeverity;
+  category: FindingCategory;
+  text: string;
+  mention_count?: number;
+}
+
+// ── Section verdicts ("so what" statements) ────────────────────────────
+export interface SectionVerdicts {
+  theme_map?: string;
+  competitive?: string;
+  evidence?: string;
+  narrative?: string;
+}
+
+// ── Enhanced friction/alignment with metrics ───────────────────────────
+export interface DetailedItem {
+  text: string;
+  mention_count?: number;
+  trend?: 'rising' | 'stable' | 'declining';
+  category?: 'product' | 'trust' | 'channel';
+}
+
 export type StatusTag =
   | "thriving"
   | "positive"
@@ -60,6 +90,10 @@ export interface EvidencePost {
   upvotes: number;
   comment_count: number;
   why_notable: string;
+  // v2 metadata
+  subreddit?: string;
+  post_date?: string;
+  sentiment_label?: 'positive' | 'negative' | 'neutral';
 }
 
 export interface SynthesisData {
@@ -69,9 +103,20 @@ export interface SynthesisData {
   undercurrent_score: number;
   score_components: ScoreComponents;
   status_tag: StatusTag;
+  narrative_headline: string;
+  narrative_signals: string[];
+  narrative_deep_dive: string;
   narrative_summary: string;
   community_alignment: CommunityAlignment;
   key_evidence_posts: EvidencePost[];
+  // Data quality / confidence
+  data_quality?: DataQuality;
+  // v2 extensions (optional for backward compat with existing data)
+  blunt_verdict?: string;
+  findings?: Finding[];
+  section_verdicts?: SectionVerdicts;
+  friction_point_details?: DetailedItem[];
+  aligned_value_details?: DetailedItem[];
 }
 
 // ── Deep analysis summary ───────────────────────────────────────────────
@@ -80,6 +125,7 @@ export interface ThemeEntry {
   theme: string;
   count: number;
   avg_sentiment: number;
+  velocity?: number;  // -1 to 1 for bubble chart size
 }
 
 export interface DeepAnalysisSummary {
@@ -128,7 +174,17 @@ export interface BrandDashboard {
 export interface ScorePoint {
   date: string;
   score: number;
+  smoothed_score?: number;
   status: StatusTag;
+}
+
+// ── Data quality / confidence ──────────────────────────────────────────
+
+export interface DataQuality {
+  mention_count: number;
+  total_posts_scanned: number;
+  confidence_level: 'low' | 'moderate' | 'high';
+  confidence_note: string;
 }
 
 export interface EmergingTheme {

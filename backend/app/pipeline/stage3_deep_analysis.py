@@ -75,11 +75,15 @@ def analyze_mentions_deeply(
         f"anger, humor, nostalgia, etc.)\n"
         f"4. intensity: 1-10 scale of how strongly the person feels\n"
         f"5. themes: what specific aspects are being discussed\n"
-        f"6. context_summary: one sentence on what this reveals about brand perception\n\n"
+        f"6. context_summary: under 10 words — the key takeaway from this mention. "
+        f"A fragment is fine — no need for a full sentence.\n\n"
         f"Be alert for sarcasm, irony, Reddit-specific humor, and context that "
         f"reverses surface-level sentiment.\n\n"
         f"Also identify the top recurring themes across all mentions, with counts "
-        f"and average sentiment scores (-1 to 1 scale)."
+        f"and average sentiment scores (-1 to 1 scale).\n"
+        f"For each theme, also estimate a velocity score (-1.0 to 1.0) indicating "
+        f"whether this theme is growing (+1), stable (0), or shrinking (-1) "
+        f"compared to typical discussion patterns."
     )
 
     # Batch mentions for Sonnet: ~4000 tokens, max 20
@@ -97,6 +101,7 @@ def analyze_mentions_deeply(
 
     all_analyzed: list[dict] = []
     all_themes: dict[str, list[float]] = {}
+    all_theme_velocities: dict[str, float] = {}
 
     for i, batch in enumerate(batches):
         user_content = f"Batch {i + 1}/{len(batches)} — {len(batch)} mentions:\n\n"
@@ -122,6 +127,10 @@ def analyze_mentions_deeply(
                 score = theme.get("avg_sentiment_score", 0)
                 if name:
                     all_themes.setdefault(name, []).append(score)
+                    # Keep the latest velocity estimate for each theme
+                    velocity = theme.get("velocity", 0.0)
+                    if name not in all_theme_velocities:
+                        all_theme_velocities[name] = velocity
         except Exception as e:
             logger.error(f"  Stage 3 batch {i+1} error for {brand_id}: {e}")
             continue
@@ -147,6 +156,7 @@ def analyze_mentions_deeply(
             "theme": theme_name,
             "count": len(scores),
             "avg_sentiment": round(sum(scores) / max(len(scores), 1), 2),
+            "velocity": all_theme_velocities.get(theme_name, 0.0),
         })
 
     deep_analysis = {

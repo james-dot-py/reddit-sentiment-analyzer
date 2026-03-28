@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Download, FileText, Loader2 } from 'lucide-react';
-import type { BrandDashboard, TrendData, StatusTag, ScoreComponents, ThemeEntry, EvidencePost } from '../../types';
+import type { TrendData, StatusTag, ScoreComponents, ThemeEntry, EvidencePost } from '../../types';
 
 interface Props {
   brandName: string;
@@ -52,19 +52,19 @@ function buildHtmlReport(props: Props): string {
 <meta charset="utf-8">
 <title>${brandName} — Undercurrent Report</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Lora:wght@400;500;600&family=Roboto+Mono:wght@400;500&display=swap');
-  body { font-family: 'Lora', Georgia, serif; color: #222; margin: 0; padding: 40px; background: #F9F7F1; max-width: 800px; margin: 0 auto; }
-  h1, h2, h3 { font-family: 'Playfair Display', Georgia, serif; }
-  .score-box { display: inline-block; font-family: 'Roboto Mono', monospace; font-size: 48px; font-weight: 500; padding: 0 20px; }
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+  body { font-family: 'Inter', system-ui, sans-serif; color: #1A1A1A; margin: 0; padding: 40px; background: #FAFAF8; max-width: 800px; margin: 0 auto; }
+  h1, h2, h3 { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.02em; }
+  .score-box { display: inline-block; font-family: 'JetBrains Mono', monospace; font-size: 48px; font-weight: 500; padding: 0 20px; }
   .status { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
   .component-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 16px; }
-  .component-cell { background: #f5f3ed; padding: 12px; border-radius: 4px; }
-  .component-value { font-family: 'Roboto Mono', monospace; font-size: 18px; font-weight: 500; }
-  .component-label { font-size: 10px; color: #757575; text-transform: uppercase; letter-spacing: 0.1em; }
-  .section { margin-top: 32px; padding-top: 24px; border-top: 1px solid rgba(34,34,34,0.1); }
-  .section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.15em; color: #757575; margin-bottom: 12px; }
-  .narrative { font-size: 14px; line-height: 1.75; color: #4a4a4a; }
-  .footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid rgba(34,34,34,0.1); font-size: 10px; color: #757575; text-align: center; }
+  .component-cell { background: #F5F4F0; padding: 12px; border-radius: 12px; }
+  .component-value { font-family: 'JetBrains Mono', monospace; font-size: 18px; font-weight: 500; }
+  .component-label { font-size: 10px; color: #6B6B6B; text-transform: uppercase; letter-spacing: 0.1em; }
+  .section { margin-top: 32px; padding-top: 24px; border-top: 1px solid rgba(0,0,0,0.06); }
+  .section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.15em; color: #6B6B6B; margin-bottom: 12px; font-family: 'Inter', sans-serif; }
+  .narrative { font-size: 14px; line-height: 1.75; color: #6B6B6B; }
+  .footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid rgba(0,0,0,0.06); font-size: 10px; color: #9CA3AF; text-align: center; }
   @media print { body { background: white; padding: 20px; } }
 </style>
 </head>

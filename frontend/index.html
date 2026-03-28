@@ -1,9 +1,27 @@
 <!doctype html>
-<html lang="en" class="dark">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Undercurrent — The Hidden Beliefs of Online Communities</title>
+    <title>Undercurrent — Brand Intelligence from Reddit</title>
+
+    <!-- OG / Social sharing -->
+    <meta property="og:title" content="Undercurrent — Brand Intelligence from Reddit" />
+    <meta property="og:description" content="What Reddit really thinks about your brand — analyzed weekly. AI-powered sentiment analysis, competitive intelligence, and community alignment." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Undercurrent — Brand Intelligence from Reddit" />
+    <meta name="twitter:description" content="What Reddit really thinks about your brand — analyzed weekly." />
+
+    <!-- Prevent flash of wrong theme -->
+    <script>
+      (function() {
+        var saved = localStorage.getItem('undercurrent-theme');
+        if (saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+          document.documentElement.classList.add('dark');
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

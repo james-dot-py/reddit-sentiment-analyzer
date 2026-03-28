@@ -1,8 +1,8 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { ChevronDown, RefreshCw, Calendar, BarChart3 } from 'lucide-react';
+import { BarChart3 } from 'lucide-react';
 import { useDashboard } from '../hooks/useDashboard';
-import { ScoreDisplay } from '../components/dashboard/ScoreDisplay';
+import { BrandBanner } from '../components/dashboard/BrandBanner';
 import { NarrativeSection } from '../components/dashboard/NarrativeSection';
 import { ScoreTrendChart } from '../components/dashboard/ScoreTrendChart';
 import { SubredditCard } from '../components/dashboard/SubredditCard';
@@ -13,16 +13,17 @@ import { CompetitiveContext } from '../components/dashboard/CompetitiveContext';
 import { ExportReport } from '../components/dashboard/ExportReport';
 import { DashboardSkeleton } from '../components/dashboard/Skeleton';
 import { fetchAvailableWeeks, fetchPipelineStatus, addAnnotation } from '../api';
-import type { ThemeEntry, EvidencePost, CommunityAlignment } from '../types';
-
-function formatWeek(dateStr: string): string {
-  try {
-    const d = new Date(dateStr + 'T12:00:00Z');
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
-  } catch { return dateStr; }
-}
+import { FeatureGate, UpgradeChip } from '../components/ui/FeatureGate';
+import { useTier } from '../hooks/useTier';
+import type { ThemeEntry, EvidencePost, CommunityAlignment, ViewMode, Finding, DetailedItem } from '../types';
 
 export function DashboardPage() {
+  const { canUse, canUseViewMode, isFree } = useTier();
+  // Mark as returning visitor for LandingNav
+  useEffect(() => {
+    localStorage.setItem('undercurrent-visited-dashboard', 'true');
+  }, []);
+
   const [searchParams, setSearchParams] = useSearchParams();
   const projectId = searchParams.get('project') || undefined;
   const brandId = searchParams.get('brand') || undefined;
@@ -84,7 +85,13 @@ export function DashboardPage() {
     if (!dashboard) return [];
     const posts: EvidencePost[] = [];
     for (const sub of dashboard.week_subreddits) {
-      posts.push(...sub.synthesis.key_evidence_posts);
+      for (const post of sub.synthesis.key_evidence_posts) {
+        posts.push({
+          ...post,
+          subreddit: post.subreddit || sub.subreddit,
+          post_date: post.post_date || dashboard.snapshot_date,
+        });
+      }
     }
     return posts.sort((a, b) => b.upvotes - a.upvotes).slice(0, 8);
   }, [dashboard]);
@@ -106,6 +113,27 @@ export function DashboardPage() {
       .map(s => s.synthesis.narrative_summary)
       .filter(Boolean)
       .join('\n\n---\n\n');
+  }, [dashboard]);
+
+  const aggregatedHeadline = useMemo(() => {
+    if (!dashboard?.week_subreddits.length) return '';
+    return dashboard.week_subreddits
+      .map(s => s.synthesis.narrative_headline)
+      .filter(Boolean)
+      .join(' ');
+  }, [dashboard]);
+
+  const aggregatedSignals = useMemo(() => {
+    if (!dashboard?.week_subreddits.length) return [];
+    return dashboard.week_subreddits.flatMap(s => s.synthesis.narrative_signals ?? []);
+  }, [dashboard]);
+
+  const aggregatedDeepDive = useMemo(() => {
+    if (!dashboard?.week_subreddits.length) return '';
+    return dashboard.week_subreddits
+      .map(s => s.synthesis.narrative_deep_dive)
+      .filter(Boolean)
+      .join('\n\n');
   }, [dashboard]);
 
   const avgComponents = useMemo(() => {
@@ -138,6 +166,99 @@ export function DashboardPage() {
     }
     return 'stable' as const;
   }, [dashboard]);
+
+  // v2: View mode (briefing vs deep-dive) — free tier locked to briefing
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    if (isFree) return 'briefing';
+    return (localStorage.getItem('undercurrent-view-mode') as ViewMode) || 'deep-dive';
+  });
+  const handleViewModeChange = useCallback((mode: ViewMode) => {
+    if (mode === 'deep-dive' && !canUseViewMode('deep-dive')) return;
+    setViewMode(mode);
+    localStorage.setItem('undercurrent-view-mode', mode);
+  }, [canUseViewMode]);
+
+  // v2: Aggregated blunt verdict
+  const aggregatedVerdict = useMemo(() => {
+    if (!dashboard?.week_subreddits.length) return '';
+    const verdicts = dashboard.week_subreddits
+      .map(s => s.synthesis.blunt_verdict)
+      .filter(Boolean);
+    return verdicts[0] || '';
+  }, [dashboard]);
+
+  // v2: Aggregated findings
+  const aggregatedFindings = useMemo((): Finding[] => {
+    if (!dashboard?.week_subreddits.length) return [];
+    const findings: Finding[] = [];
+    for (const sub of dashboard.week_subreddits) {
+      for (const f of sub.synthesis.findings ?? []) {
+        // Deduplicate by checking text similarity
+        if (!findings.some(existing => existing.text === f.text)) {
+          findings.push(f);
+        }
+      }
+    }
+    // Sort by severity: critical first, then elevated, then monitor
+    const order = { critical: 0, elevated: 1, monitor: 2 };
+    return findings.sort((a, b) => (order[a.severity] ?? 2) - (order[b.severity] ?? 2));
+  }, [dashboard]);
+
+  // v2: Section verdicts
+  const aggregatedSectionVerdicts = useMemo(() => {
+    if (!dashboard?.week_subreddits.length) return {};
+    // Take verdicts from first subreddit (most representative)
+    return dashboard.week_subreddits[0]?.synthesis.section_verdicts ?? {};
+  }, [dashboard]);
+
+  // v2: Aggregated friction/aligned details
+  const aggregatedFrictionDetails = useMemo((): DetailedItem[] => {
+    if (!dashboard?.week_subreddits.length) return [];
+    const items: DetailedItem[] = [];
+    for (const sub of dashboard.week_subreddits) {
+      for (const item of sub.synthesis.friction_point_details ?? []) {
+        if (!items.some(e => e.text === item.text)) items.push(item);
+      }
+    }
+    return items.sort((a, b) => (b.mention_count ?? 0) - (a.mention_count ?? 0));
+  }, [dashboard]);
+
+  const aggregatedAlignedDetails = useMemo((): DetailedItem[] => {
+    if (!dashboard?.week_subreddits.length) return [];
+    const items: DetailedItem[] = [];
+    for (const sub of dashboard.week_subreddits) {
+      for (const item of sub.synthesis.aligned_value_details ?? []) {
+        if (!items.some(e => e.text === item.text)) items.push(item);
+      }
+    }
+    return items.sort((a, b) => (b.mention_count ?? 0) - (a.mention_count ?? 0));
+  }, [dashboard]);
+
+  // Data quality: aggregate mention count and confidence
+  const dataQuality = useMemo(() => {
+    if (!dashboard?.week_subreddits.length) return null;
+    let totalMentions = 0;
+    for (const sub of dashboard.week_subreddits) {
+      const dq = sub.synthesis.data_quality;
+      if (dq) {
+        totalMentions += dq.mention_count;
+      } else if (sub.deep_analysis_summary) {
+        totalMentions += sub.deep_analysis_summary.mention_count;
+      }
+    }
+    const level = totalMentions >= 30 ? 'high' as const
+      : totalMentions >= 10 ? 'moderate' as const
+      : 'low' as const;
+    return { mentionCount: totalMentions, confidenceLevel: level };
+  }, [dashboard]);
+
+  // v2: Primary brand top themes (for competitive context)
+  const primaryTopThemes = useMemo(() => {
+    return aggregatedThemes
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 3)
+      .map(t => t.theme.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()));
+  }, [aggregatedThemes]);
 
   // Add annotation handler for the trend chart
   const handleAddAnnotation = useCallback(async (date: string, label: string) => {
@@ -182,99 +303,6 @@ export function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      {/* Navigation bar */}
-      <div className="flex flex-wrap items-center gap-3">
-        {/* Project selector */}
-        <div className="relative">
-          <select
-            value={projectId || ''}
-            onChange={e => {
-              const pid = e.target.value;
-              const proj = projects.find(p => p.project_id === pid);
-              const brand = proj?.brands.find(b => !b.is_competitor) || proj?.brands[0];
-              setSearchParams(brand ? { project: pid, brand: brand.brand_id } : { project: pid });
-            }}
-            className="appearance-none rounded border border-[var(--border-default)] bg-[var(--surface-card)] px-3 py-1.5 pr-8 text-sm font-medium text-[var(--text-primary)] cursor-pointer"
-          >
-            <option value="">Select project...</option>
-            {projects.map(p => (
-              <option key={p.project_id} value={p.project_id}>{p.project_name}</option>
-            ))}
-          </select>
-          <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-[var(--text-muted)]" />
-        </div>
-
-        {/* Brand tabs */}
-        {selectedProject && (
-          <div className="flex gap-1">
-            {selectedProject.brands.map(b => (
-              <button
-                key={b.brand_id}
-                onClick={() => updateParams({ brand: b.brand_id })}
-                className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                  b.brand_id === brandId
-                    ? 'bg-[var(--text-primary)] text-[var(--surface-0)]'
-                    : 'border border-[var(--border-default)] text-[var(--text-secondary)] hover:border-[var(--text-muted)]'
-                } ${b.is_competitor ? 'opacity-70' : ''}`}
-              >
-                {b.brand_name}
-                {b.is_competitor && <span className="ml-1 text-[9px] opacity-60">comp</span>}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* Week selector */}
-        {availableWeeks.length > 0 && (
-          <div className="relative">
-            <Calendar size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-[var(--text-muted)]" />
-            <select
-              value={week || ''}
-              onChange={e => updateParams({ week: e.target.value || undefined })}
-              className="appearance-none rounded border border-[var(--border-default)] bg-[var(--surface-card)] pl-7 pr-8 py-1.5 text-xs text-[var(--text-secondary)] cursor-pointer"
-            >
-              <option value="">Latest week</option>
-              {availableWeeks.map(w => (
-                <option key={w} value={w}>{formatWeek(w)}</option>
-              ))}
-            </select>
-            <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-[var(--text-muted)]" />
-          </div>
-        )}
-
-        <div className="flex-1" />
-
-        {/* Snapshot date */}
-        {dashboard?.snapshot_date && (
-          <span className="text-[10px] text-[var(--text-muted)] data-text">
-            {formatWeek(dashboard.snapshot_date)}
-          </span>
-        )}
-
-        {/* Export report */}
-        {!loading && dashboard && (
-          <ExportReport
-            brandName={dashboard.brand_name}
-            score={avgScore}
-            status={aggregatedStatus}
-            components={avgComponents}
-            narrative={primaryNarrative}
-            themes={aggregatedThemes}
-            evidence={aggregatedEvidence}
-            trends={trends}
-            snapshotDate={dashboard.snapshot_date}
-          />
-        )}
-
-        {/* Refresh */}
-        <button
-          onClick={refresh}
-          disabled={loading}
-          className="inline-flex items-center gap-1.5 rounded border border-[var(--border-default)] px-2.5 py-1 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors disabled:opacity-40"
-        >
-          <RefreshCw size={12} className={loading ? 'animate-spin' : ''} /> Refresh
-        </button>
-      </div>
 
       {/* Loading skeleton */}
       {loading && <DashboardSkeleton />}
@@ -306,24 +334,132 @@ export function DashboardPage() {
         </div>
       )}
 
-      {/* Dashboard content */}
+      {/* Brand Banner (always shown when we have project/brand selected) */}
       {!loading && dashboard && (
-        <>
-          {/* Section A: Score header */}
-          <ScoreDisplay
-            score={avgScore}
-            status={aggregatedStatus}
-            components={avgComponents}
-            brandName={dashboard.brand_name}
-            snapshotDate={dashboard.snapshot_date}
-            lastUpdated={lastUpdated}
-          />
+        <BrandBanner
+          score={avgScore}
+          status={aggregatedStatus}
+          components={avgComponents}
+          brandName={dashboard.brand_name}
+          snapshotDate={dashboard.snapshot_date}
+          projectName={selectedProject?.project_name}
+          projects={projects}
+          selectedProjectId={projectId}
+          selectedBrandId={brandId}
+          availableWeeks={availableWeeks}
+          selectedWeek={week}
+          onProjectChange={pid => {
+            const proj = projects.find(p => p.project_id === pid);
+            const brand = proj?.brands.find(b => !b.is_competitor) || proj?.brands[0];
+            setSearchParams(brand ? { project: pid, brand: brand.brand_id } : { project: pid });
+          }}
+          onBrandChange={bid => updateParams({ brand: bid })}
+          onWeekChange={w => updateParams({ week: w })}
+          onRefresh={refresh}
+          loading={loading}
+          viewMode={viewMode}
+          onViewModeChange={handleViewModeChange}
+          exportButton={
+            canUse('export_enabled') ? (
+              <ExportReport
+                brandName={dashboard.brand_name}
+                score={avgScore}
+                status={aggregatedStatus}
+                components={avgComponents}
+                narrative={primaryNarrative}
+                themes={aggregatedThemes}
+                evidence={aggregatedEvidence}
+                trends={trends}
+                snapshotDate={dashboard.snapshot_date}
+              />
+            ) : <UpgradeChip featureName="Export" />
+          }
+          deepDiveLocked={!canUseViewMode('deep-dive')}
+          mentionCount={dataQuality?.mentionCount}
+          confidenceLevel={dataQuality?.confidenceLevel}
+        />
+      )}
 
+      {/* Dashboard content */}
+      {!loading && dashboard && viewMode === 'briefing' && (
+        <>
+          {/* Briefing: compact 2-column layout */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <NarrativeSection
+              headline={aggregatedHeadline}
+              signals={aggregatedSignals}
+              deepDive={aggregatedDeepDive}
+              narrativeDelta={trends?.narrative_delta}
+              bluntVerdict={aggregatedVerdict}
+              findings={aggregatedFindings.length > 0 ? aggregatedFindings : undefined}
+              sectionVerdict={aggregatedSectionVerdicts.narrative}
+              viewMode={viewMode}
+            />
+            <ScoreTrendChart
+              scoreHistory={trends?.score_history ?? []}
+              annotations={trends?.annotations ?? []}
+              trajectory={trends?.trajectory ?? null}
+              onAddAnnotation={projectId && brandId ? handleAddAnnotation : undefined}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Briefing: competitive snapshot (Pro only) */}
+            {competitors.length > 0 && projectId && (
+              <FeatureGate allowed={canUse('competitive_context')} featureName="Competitive Context">
+                <CompetitiveContext
+                  projectId={projectId}
+                  primaryBrandId={brandId!}
+                  primaryBrandName={dashboard.brand_name}
+                  primaryScore={avgScore}
+                  primaryStatus={aggregatedStatus}
+                  primaryComponents={avgComponents}
+                  primaryVerdict={aggregatedVerdict}
+                  primaryThemes={primaryTopThemes}
+                  primaryScoreHistory={trends?.score_history}
+                  competitors={competitors}
+                  week={week}
+                  sectionVerdict={aggregatedSectionVerdicts.competitive}
+                />
+              </FeatureGate>
+            )}
+
+            {/* Briefing: top 3 evidence */}
+            <EvidenceTable
+              posts={aggregatedEvidence.slice(0, 3)}
+              sectionVerdict={aggregatedSectionVerdicts.evidence}
+            />
+          </div>
+
+          {/* Switch to deep-dive */}
+          <div className="text-center">
+            {canUseViewMode('deep-dive') ? (
+              <button
+                onClick={() => handleViewModeChange('deep-dive')}
+                className="text-xs text-[var(--color-accent-500)] hover:underline cursor-pointer font-medium"
+              >
+                View Full Analysis &rarr;
+              </button>
+            ) : (
+              <UpgradeChip featureName="Deep-Dive Analysis" />
+            )}
+          </div>
+        </>
+      )}
+
+      {!loading && dashboard && viewMode === 'deep-dive' && (
+        <>
           {/* Section B: Narrative + Section C: Trend chart */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <NarrativeSection
-              narrative={primaryNarrative}
+              headline={aggregatedHeadline}
+              signals={aggregatedSignals}
+              deepDive={aggregatedDeepDive}
               narrativeDelta={trends?.narrative_delta}
+              bluntVerdict={aggregatedVerdict}
+              findings={aggregatedFindings.length > 0 ? aggregatedFindings : undefined}
+              sectionVerdict={aggregatedSectionVerdicts.narrative}
+              viewMode={viewMode}
             />
             <ScoreTrendChart
               scoreHistory={trends?.score_history ?? []}
@@ -339,30 +475,44 @@ export function DashboardPage() {
               themes={aggregatedThemes}
               emergingThemes={trends?.emerging_themes}
               decliningThemes={trends?.declining_themes}
+              sectionVerdict={aggregatedSectionVerdicts.theme_map}
             />
-            <CommunityValues alignment={aggregatedAlignment} />
+            <CommunityValues
+              alignment={aggregatedAlignment}
+              frictionDetails={aggregatedFrictionDetails.length > 0 ? aggregatedFrictionDetails : undefined}
+              alignedDetails={aggregatedAlignedDetails.length > 0 ? aggregatedAlignedDetails : undefined}
+            />
           </div>
 
-          {/* Section F: Competitive context */}
+          {/* Section F: Competitive context (Pro only) */}
           {competitors.length > 0 && projectId && (
-            <CompetitiveContext
-              projectId={projectId}
-              primaryBrandId={brandId!}
-              primaryScore={avgScore}
-              primaryStatus={aggregatedStatus}
-              primaryComponents={avgComponents}
-              competitors={competitors}
-              week={week}
-            />
+            <FeatureGate allowed={canUse('competitive_context')} featureName="Competitive Context">
+              <CompetitiveContext
+                projectId={projectId}
+                primaryBrandId={brandId!}
+                primaryBrandName={dashboard.brand_name}
+                primaryScore={avgScore}
+                primaryStatus={aggregatedStatus}
+                primaryComponents={avgComponents}
+                primaryVerdict={aggregatedVerdict}
+                primaryThemes={primaryTopThemes}
+                primaryScoreHistory={trends?.score_history}
+                competitors={competitors}
+                week={week}
+                sectionVerdict={aggregatedSectionVerdicts.competitive}
+              />
+            </FeatureGate>
           )}
 
           {/* Section D: Community breakdown */}
           {dashboard.week_subreddits.length > 1 && (
             <div>
-              <h3 className="text-xs font-semibold uppercase tracking-[0.15em] text-[var(--text-muted)] mb-3">
-                Community Breakdown
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <h3 className="section-label mb-3">Community Breakdown</h3>
+              <div className={`grid gap-5 ${
+                dashboard.week_subreddits.length <= 2
+                  ? 'grid-cols-1 lg:grid-cols-2'
+                  : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'
+              }`}>
                 {dashboard.week_subreddits.map(sub => (
                   <SubredditCard key={sub.subreddit} data={sub} />
                 ))}
@@ -371,7 +521,10 @@ export function DashboardPage() {
           )}
 
           {/* Section H: Evidence table */}
-          <EvidenceTable posts={aggregatedEvidence} />
+          <EvidenceTable
+            posts={aggregatedEvidence}
+            sectionVerdict={aggregatedSectionVerdicts.evidence}
+          />
         </>
       )}
     </div>

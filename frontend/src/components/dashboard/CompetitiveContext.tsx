@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Shield, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { Shield } from 'lucide-react';
+import { LineChart, Line, ResponsiveContainer } from 'recharts';
 import { StatusBadge } from './StatusBadge';
-import { fetchBrandDashboard } from '../../api';
-import type { BrandConfig, BrandDashboard, StatusTag, ScoreComponents } from '../../types';
+import { SectionVerdict } from './SectionVerdict';
+import { fetchBrandDashboard, fetchBrandTrends } from '../../api';
+import type { BrandConfig, BrandDashboard, StatusTag, ScoreComponents, ScorePoint } from '../../types';
 
 interface CompetitorSnapshot {
   brand_id: string;
@@ -10,7 +12,9 @@ interface CompetitorSnapshot {
   score: number;
   status: StatusTag;
   components: ScoreComponents;
-  narrative: string;
+  verdict: string;
+  themes: string[];
+  scoreHistory: ScorePoint[];
   loading: boolean;
   error: boolean;
 }
@@ -21,25 +25,13 @@ interface Props {
   primaryScore: number;
   primaryStatus: StatusTag;
   primaryComponents: ScoreComponents;
+  primaryVerdict?: string;
+  primaryThemes?: string[];
+  primaryScoreHistory?: ScorePoint[];
   competitors: BrandConfig[];
   week?: string;
-}
-
-function scoreDelta(primary: number, competitor: number): { icon: React.ReactNode; label: string; color: string } {
-  const diff = primary - competitor;
-  if (diff > 5) return { icon: <TrendingUp size={12} />, label: `+${diff}`, color: 'text-emerald-600' };
-  if (diff < -5) return { icon: <TrendingDown size={12} />, label: `${diff}`, color: 'text-red-600' };
-  return { icon: <Minus size={12} />, label: '~0', color: 'text-slate-400' };
-}
-
-function componentLabel(key: keyof ScoreComponents): string {
-  const map: Record<keyof ScoreComponents, string> = {
-    sentiment_mix: 'Sentiment',
-    intensity: 'Intensity',
-    trajectory: 'Trajectory',
-    community_alignment: 'Alignment',
-  };
-  return map[key];
+  sectionVerdict?: string;
+  primaryBrandName?: string;
 }
 
 function avgScore(dashboard: BrandDashboard): number {
@@ -64,115 +56,196 @@ function worstStatus(dashboard: BrandDashboard): StatusTag {
   return 'stable';
 }
 
-function firstNarrative(dashboard: BrandDashboard): string {
+function getVerdict(dashboard: BrandDashboard): string {
   for (const sub of dashboard.week_subreddits) {
-    if (sub.synthesis.narrative_summary) return sub.synthesis.narrative_summary;
+    if (sub.synthesis.blunt_verdict) return sub.synthesis.blunt_verdict;
+    if (sub.synthesis.narrative_headline) return sub.synthesis.narrative_headline;
   }
   return '';
 }
 
-export function CompetitiveContext({ projectId, primaryBrandId, primaryScore, primaryStatus, primaryComponents, competitors, week }: Props) {
+function getTopThemes(dashboard: BrandDashboard): string[] {
+  const themeMap = new Map<string, number>();
+  for (const sub of dashboard.week_subreddits) {
+    for (const t of sub.deep_analysis_summary?.top_themes ?? []) {
+      themeMap.set(t.theme, (themeMap.get(t.theme) || 0) + t.count);
+    }
+  }
+  return Array.from(themeMap.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([theme]) => theme.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()));
+}
+
+function scoreColor(score: number): string {
+  if (score >= 70) return 'var(--color-strength)';
+  if (score >= 50) return 'var(--text-primary)';
+  if (score >= 36) return 'var(--color-warning)';
+  return 'var(--color-danger)';
+}
+
+function BrandColumn({
+  name, score, status, verdict, themes, scoreHistory, isPrimary,
+}: {
+  name: string;
+  score: number;
+  status: StatusTag;
+  verdict: string;
+  themes: string[];
+  scoreHistory: ScorePoint[];
+  isPrimary: boolean;
+}) {
+  return (
+    <div className={`flex flex-col p-4 rounded-lg ${isPrimary ? 'bg-[var(--surface-1)] border border-[var(--border-default)]' : 'bg-[var(--surface-1)] border border-[var(--border-subtle)]'}`}>
+      {/* Brand name */}
+      <div className="text-sm font-semibold text-[var(--text-primary)] mb-1">{name}</div>
+
+      {/* Score + status */}
+      <div className="flex items-center gap-2 mb-2">
+        <span
+          className="data-text text-2xl font-semibold leading-none"
+          style={{ color: scoreColor(score) }}
+        >
+          {score}
+        </span>
+        <StatusBadge status={status} size="sm" />
+      </div>
+
+      {/* Verdict */}
+      {verdict && (
+        <p className="text-xs text-[var(--text-secondary)] leading-relaxed mb-3 min-h-[2.5rem]">
+          {verdict}
+        </p>
+      )}
+
+      {/* Sparkline */}
+      {scoreHistory.length >= 2 && (
+        <div className="h-12 mt-auto">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={scoreHistory}>
+              <Line
+                type="monotone"
+                dataKey="score"
+                stroke={scoreColor(score)}
+                strokeWidth={1.5}
+                dot={false}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {/* Theme chips */}
+      {themes.length > 0 && (
+        <div className="flex flex-wrap gap-1 mt-2">
+          {themes.map((t, i) => (
+            <span key={i} className="rounded-full bg-[var(--surface-2)] px-2 py-0.5 text-[9px] text-[var(--text-muted)]">
+              {t}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function CompetitiveContext({
+  projectId, primaryBrandId, primaryScore, primaryStatus, primaryComponents,
+  primaryVerdict, primaryThemes, primaryScoreHistory,
+  competitors, week, sectionVerdict, primaryBrandName,
+}: Props) {
   const [snapshots, setSnapshots] = useState<CompetitorSnapshot[]>([]);
 
   useEffect(() => {
     if (!competitors.length) return;
+
     const initial: CompetitorSnapshot[] = competitors.map(c => ({
       brand_id: c.brand_id,
       brand_name: c.brand_name,
       score: 0,
       status: 'stable' as StatusTag,
       components: { sentiment_mix: 0, intensity: 0, trajectory: 0, community_alignment: 0 },
-      narrative: '',
+      verdict: '',
+      themes: [],
+      scoreHistory: [],
       loading: true,
       error: false,
     }));
     setSnapshots(initial);
 
     competitors.forEach((comp, idx) => {
-      fetchBrandDashboard(projectId, comp.brand_id, week)
-        .then(dashboard => {
-          setSnapshots(prev => prev.map((s, i) => i === idx ? {
-            ...s,
-            score: avgScore(dashboard),
-            status: worstStatus(dashboard),
-            components: avgComponents(dashboard),
-            narrative: firstNarrative(dashboard).slice(0, 150),
-            loading: false,
-          } : s));
-        })
-        .catch(() => {
-          setSnapshots(prev => prev.map((s, i) => i === idx ? { ...s, loading: false, error: true } : s));
-        });
+      // Fetch dashboard and trends in parallel for each competitor
+      Promise.all([
+        fetchBrandDashboard(projectId, comp.brand_id, week),
+        fetchBrandTrends(projectId, comp.brand_id, 8).catch(() => null),
+      ]).then(([dashboard, trends]) => {
+        setSnapshots(prev => prev.map((s, i) => i === idx ? {
+          ...s,
+          score: avgScore(dashboard),
+          status: worstStatus(dashboard),
+          components: avgComponents(dashboard),
+          verdict: getVerdict(dashboard),
+          themes: getTopThemes(dashboard),
+          scoreHistory: trends?.score_history ?? [],
+          loading: false,
+        } : s));
+      }).catch(() => {
+        setSnapshots(prev => prev.map((s, i) => i === idx ? { ...s, loading: false, error: true } : s));
+      });
     });
   }, [projectId, competitors, week]);
 
   if (!competitors.length) return null;
 
-  // Find where primary brand is stronger/weaker vs each competitor
-  const componentKeys: (keyof ScoreComponents)[] = ['sentiment_mix', 'intensity', 'trajectory', 'community_alignment'];
+  const loaded = snapshots.filter(s => !s.loading && !s.error);
 
   return (
     <div className="paper-card p-6">
-      <h3 className="text-xs font-semibold uppercase tracking-[0.15em] text-[var(--text-muted)] mb-4 flex items-center gap-1.5">
+      <h3 className="section-label mb-4 flex items-center gap-1.5">
         <Shield size={12} /> Competitive Context
       </h3>
 
-      <div className="space-y-4">
+      <SectionVerdict verdict={sectionVerdict} />
+
+      {/* Side-by-side grid */}
+      <div className={`grid gap-4 ${
+        loaded.length + 1 <= 2 ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1 md:grid-cols-3'
+      }`}>
+        {/* Primary brand column */}
+        <BrandColumn
+          name={primaryBrandName || 'Primary'}
+          score={primaryScore}
+          status={primaryStatus}
+          verdict={primaryVerdict || ''}
+          themes={primaryThemes || []}
+          scoreHistory={primaryScoreHistory || []}
+          isPrimary={true}
+        />
+
+        {/* Competitor columns */}
         {snapshots.map(comp => {
           if (comp.loading) {
-            return (
-              <div key={comp.brand_id} className="animate-pulse rounded bg-[var(--surface-1)] h-24" />
-            );
+            return <div key={comp.brand_id} className="animate-pulse rounded-lg bg-[var(--surface-1)] h-48" />;
           }
           if (comp.error) {
             return (
-              <div key={comp.brand_id} className="rounded bg-[var(--surface-1)] p-4">
+              <div key={comp.brand_id} className="rounded-lg bg-[var(--surface-1)] border border-[var(--border-subtle)] p-4">
                 <span className="text-sm font-medium">{comp.brand_name}</span>
-                <span className="ml-2 text-xs text-[var(--text-muted)]">No data available</span>
+                <span className="ml-2 text-xs text-[var(--text-muted)]">No data</span>
               </div>
             );
           }
-
-          const delta = scoreDelta(primaryScore, comp.score);
-          const strengths = componentKeys.filter(k => primaryComponents[k] > comp.components[k] + 5);
-          const weaknesses = componentKeys.filter(k => primaryComponents[k] < comp.components[k] - 5);
-
           return (
-            <div key={comp.brand_id} className="rounded border border-[var(--border-subtle)] bg-[var(--surface-1)] p-4">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2.5">
-                  <span className="text-sm font-medium">{comp.brand_name}</span>
-                  <StatusBadge status={comp.status} size="sm" />
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className={`inline-flex items-center gap-1 data-text text-xs font-medium ${delta.color}`}>
-                    {delta.icon} {delta.label}
-                  </span>
-                  <span className="data-text text-xl font-medium">{comp.score}</span>
-                </div>
-              </div>
-
-              {comp.narrative && (
-                <p className="text-xs text-[var(--text-secondary)] leading-relaxed mb-2 line-clamp-2">
-                  {comp.narrative}...
-                </p>
-              )}
-
-              {(strengths.length > 0 || weaknesses.length > 0) && (
-                <div className="flex flex-wrap gap-1.5 mt-2">
-                  {strengths.map(k => (
-                    <span key={k} className="rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] text-emerald-700">
-                      ↑ {componentLabel(k)}
-                    </span>
-                  ))}
-                  {weaknesses.map(k => (
-                    <span key={k} className="rounded-full bg-red-50 border border-red-200 px-2 py-0.5 text-[10px] text-red-700">
-                      ↓ {componentLabel(k)}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
+            <BrandColumn
+              key={comp.brand_id}
+              name={comp.brand_name}
+              score={comp.score}
+              status={comp.status}
+              verdict={comp.verdict}
+              themes={comp.themes}
+              scoreHistory={comp.scoreHistory}
+              isPrimary={false}
+            />
           );
         })}
       </div>
