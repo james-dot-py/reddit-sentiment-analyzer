@@ -19,6 +19,8 @@ const SUBREDDIT_EMOJI: Record<string, string> = {
   // Fandom pairs
   apple: '🍎',
   android: '🤖',
+  // Identity exploration
+  xenogendersandmore: '🌈',
 };
 
 interface Props {

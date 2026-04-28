@@ -10,5 +10,6 @@
   {"name": "antiwork",      "description": "Critiques of work culture, labor rights advocacy",              "limit": 200, "sort": "top", "time": "week", "depth": 2},
   {"name": "overemployed",  "description": "Working multiple jobs simultaneously, hustle culture",          "limit": 200, "sort": "top", "time": "week", "depth": 2},
   {"name": "apple",         "description": "Apple product enthusiasm and ecosystem discussion",             "limit": 200, "sort": "top", "time": "week", "depth": 2},
-  {"name": "Android",       "description": "Android ecosystem, devices, and customization",                "limit": 200, "sort": "top", "time": "week", "depth": 2}
+  {"name": "Android",       "description": "Android ecosystem, devices, and customization",                "limit": 200, "sort": "top", "time": "week", "depth": 2},
+  {"name": "XenogendersAndMore", "description": "Xenogender identity exploration, neopronouns, and queer self-expression", "limit": 200, "sort": "top", "time": "week", "depth": 2}
 ]

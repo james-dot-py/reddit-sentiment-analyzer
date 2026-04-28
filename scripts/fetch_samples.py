@@ -38,6 +38,8 @@ SUBREDDITS = [
     # Fandom pairs
     {"name": "apple",              "limit": 200, "sort": "top", "time": "week",  "depth": 2, "description": "Apple ecosystem identity — design, premium experience, and brand loyalty"},
     {"name": "Android",            "limit": 200, "sort": "top", "time": "week",  "depth": 2, "description": "Android ecosystem identity — customization, openness, and value"},
+    # Identity exploration
+    {"name": "XenogendersAndMore", "limit": 200, "sort": "top", "time": "week",  "depth": 2, "description": "Xenogender identity — neopronouns, microlabels, and queer self-expression"},
 ]
 
 RATE_LIMIT = 2.0  # seconds between requests
